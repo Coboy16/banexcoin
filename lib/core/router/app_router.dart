@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-
 import 'package:go_router/go_router.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '/core/layout/layaout.dart';
+import '/core/layout/presentation/pages/main_layout_page.dart';
 import '/features/features.dart';
 import '/core/bloc/blocs.dart';
 
@@ -30,10 +29,7 @@ class AppRouter {
       routes: [
         ShellRoute(
           builder: (context, state, child) {
-            return BlocProvider(
-              create: (context) => NavigationBloc(),
-              child: MainLayoutPage(child: child),
-            );
+            return MainLayoutPage(child: child);
           },
           routes: [
             GoRoute(
@@ -115,8 +111,14 @@ class AppRouter {
     String route,
     int index,
   ) {
-    final navigationBloc = context.read<NavigationBloc>();
-    navigationBloc.add(NavigateToPageEvent(route: route, index: index));
+    // Usar el NavigationBloc del contexto principal, no crear uno nuevo
+    try {
+      final navigationBloc = context.read<NavigationBloc>();
+      navigationBloc.add(NavigateToPageEvent(route: route, index: index));
+    } catch (e) {
+      // Si no hay NavigationBloc disponible, lo ignoramos
+      debugPrint('NavigationBloc not found: $e');
+    }
   }
 
   // Helper methods for navigation
@@ -159,10 +161,10 @@ class AppRouter {
         return 2;
       case calculator:
         return 3;
-      // case portfolio:
-      //   return 4;
-      // case settings:
-      //   return 5;
+      case portfolio:
+        return 4;
+      case settings:
+        return 5;
       default:
         return 0;
     }

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '/core/layout/presentation/widgets/widgets.dart';
+import '/core/theme/theme.dart';
 import '/core/bloc/blocs.dart';
-import '/core/core.dart';
+import 'sidebar_widget.dart';
+import 'top_bar_widget.dart';
 
 class DesktopLayout extends StatelessWidget {
   const DesktopLayout({
@@ -56,6 +56,7 @@ class DesktopLayout extends StatelessWidget {
                 // Body
                 Expanded(
                   child: Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(AppSpacing.lg),
                     child: child,
                   ),

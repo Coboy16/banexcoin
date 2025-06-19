@@ -1,6 +1,5 @@
 import 'package:banexcoin/core/bloc/blocs.dart';
 import 'package:flutter/material.dart';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -22,116 +21,125 @@ class SidebarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.secondaryBackground,
-        border: Border(
-          right: BorderSide(color: AppColors.borderPrimary, width: 1),
-        ),
-      ),
-      child: Column(
-        children: [
-          // Logo section
-          _buildLogoSection(),
+    return BlocBuilder<ThemeBloc, ThemeState>(
+      builder: (context, themeState) {
+        final isDark = themeState.isDarkMode;
 
-          const Divider(height: 1),
-
-          // Navigation items
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-              children: [
-                _SidebarItem(
-                  icon: LucideIcons.layoutDashboard,
-                  title: 'Dashboard',
-                  isActive: currentRoute == AppRouter.dashboard,
-                  isExpanded: isExpanded,
-                  onTap: () => context.go(AppRouter.dashboard),
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.chartCandlestick,
-                  title: 'Trading Pairs',
-                  isActive: currentRoute == AppRouter.tradingPairs,
-                  isExpanded: isExpanded,
-                  onTap: () => context.go(AppRouter.tradingPairs),
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.bookOpen,
-                  title: 'Order Book',
-                  isActive: currentRoute == AppRouter.orderBook,
-                  isExpanded: isExpanded,
-                  onTap: () => context.go(AppRouter.orderBook),
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.calculator,
-                  title: 'Calculator',
-                  isActive: currentRoute == AppRouter.calculator,
-                  isExpanded: isExpanded,
-                  onTap: () => context.go(AppRouter.calculator),
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.wallet,
-                  title: 'Portfolio',
-                  isActive: currentRoute == AppRouter.portfolio,
-                  isExpanded: isExpanded,
-                  onTap: () => context.go(AppRouter.portfolio),
-                ),
-
-                const SizedBox(height: AppSpacing.lg),
-
-                if (isExpanded)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                    ),
-                    child: Text(
-                      'MARKETS',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-
-                _SidebarItem(
-                  icon: LucideIcons.bitcoin,
-                  title: 'BTC/USDT',
-                  isExpanded: isExpanded,
-                  subtitle: '\$43,250.00',
-                  trailing: '+2.5%',
-                  trailingColor: AppColors.buyGreen,
-                  onTap: () {},
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.hexagon,
-                  title: 'ETH/USDT',
-                  isExpanded: isExpanded,
-                  subtitle: '\$2,650.00',
-                  trailing: '-1.2%',
-                  trailingColor: AppColors.sellRed,
-                  onTap: () {},
-                ),
-                _SidebarItem(
-                  icon: LucideIcons.circle,
-                  title: 'BNB/USDT',
-                  isExpanded: isExpanded,
-                  subtitle: '\$315.50',
-                  trailing: '+4.7%',
-                  trailingColor: AppColors.buyGreen,
-                  onTap: () {},
-                ),
-              ],
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.getSecondaryBackground(isDark),
+            border: Border(
+              right: BorderSide(
+                color: AppColors.getBorderPrimary(isDark),
+                width: 1,
+              ),
             ),
           ),
+          child: Column(
+            children: [
+              // Logo section
+              _buildLogoSection(isDark),
 
-          // Bottom section
-          _buildBottomSection(context),
-        ],
-      ),
+              Divider(height: 1, color: AppColors.getBorderPrimary(isDark)),
+
+              // Navigation items
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  children: [
+                    _SidebarItem(
+                      icon: LucideIcons.layoutDashboard,
+                      title: 'Dashboard',
+                      isActive: currentRoute == AppRouter.dashboard,
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      onTap: () => context.go(AppRouter.dashboard),
+                    ),
+                    _SidebarItem(
+                      icon: LucideIcons.chartCandlestick,
+                      title: 'Trading Pairs',
+                      isActive: currentRoute == AppRouter.tradingPairs,
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      onTap: () => context.go(AppRouter.tradingPairs),
+                    ),
+                    _SidebarItem(
+                      icon: LucideIcons.bookOpen,
+                      title: 'Order Book',
+                      isActive: currentRoute == AppRouter.orderBook,
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      onTap: () => context.go(AppRouter.orderBook),
+                    ),
+                    _SidebarItem(
+                      icon: LucideIcons.calculator,
+                      title: 'Calculator',
+                      isActive: currentRoute == AppRouter.calculator,
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      onTap: () => context.go(AppRouter.calculator),
+                    ),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    if (isExpanded)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                        ),
+                        child: Text(
+                          'MARKETS',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.getTextMuted(isDark),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                    _SidebarItem(
+                      icon: LucideIcons.bitcoin,
+                      title: 'BTC/USDT',
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      subtitle: '\$43,250.00',
+                      trailing: '+2.5%',
+                      trailingColor: AppColors.getBuyGreen(isDark),
+                      onTap: () {},
+                    ),
+                    _SidebarItem(
+                      icon: LucideIcons.hexagon,
+                      title: 'ETH/USDT',
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      subtitle: '\$2,650.00',
+                      trailing: '-1.2%',
+                      trailingColor: AppColors.getSellRed(isDark),
+                      onTap: () {},
+                    ),
+                    _SidebarItem(
+                      icon: LucideIcons.circle,
+                      title: 'BNB/USDT',
+                      isExpanded: isExpanded,
+                      isDark: isDark,
+                      subtitle: '\$315.50',
+                      trailing: '+4.7%',
+                      trailingColor: AppColors.getBuyGreen(isDark),
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+              ),
+
+              // Bottom section
+              _buildBottomSection(context, isDark),
+            ],
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildLogoSection() {
+  Widget _buildLogoSection(bool isDark) {
     return Container(
       height: 80,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -141,25 +149,32 @@ class SidebarWidget extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue,
+              color: AppColors.getPrimaryBlue(isDark),
               borderRadius: BorderRadius.circular(AppBorderRadius.md),
             ),
-            child: const Icon(
+            child: Icon(
               LucideIcons.trendingUp,
-              color: AppColors.textPrimary,
+              color: AppColors.getTextPrimary(isDark),
               size: 24,
             ),
           ),
           if (isExpanded) ...[
             const SizedBox(width: AppSpacing.md),
-            Expanded(child: Text('BanexCoin', style: AppTextStyles.h3)),
+            Expanded(
+              child: Text(
+                'BanexCoin',
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                ),
+              ),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildBottomSection(BuildContext context) {
+  Widget _buildBottomSection(BuildContext context, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
@@ -168,9 +183,9 @@ class SidebarWidget extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
+                color: AppColors.getCardBackground(isDark),
                 borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                border: Border.all(color: AppColors.borderPrimary),
+                border: Border.all(color: AppColors.getBorderPrimary(isDark)),
               ),
               child: Row(
                 children: [
@@ -178,12 +193,12 @@ class SidebarWidget extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
+                      color: AppColors.getPrimaryBlue(isDark),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       LucideIcons.user,
-                      color: AppColors.textPrimary,
+                      color: AppColors.getTextPrimary(isDark),
                       size: 16,
                     ),
                   ),
@@ -195,11 +210,16 @@ class SidebarWidget extends StatelessWidget {
                         Text(
                           'John Doe',
                           style: AppTextStyles.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
+                            color: AppColors.getTextPrimary(isDark),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        Text('Premium User', style: AppTextStyles.caption),
+                        Text(
+                          'Premium User',
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.getTextMuted(isDark),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -216,7 +236,7 @@ class SidebarWidget extends StatelessWidget {
                 onPressed: () => context.go(AppRouter.settings),
                 icon: Icon(
                   LucideIcons.settings,
-                  color: AppColors.textMuted,
+                  color: AppColors.getTextMuted(isDark),
                   size: isExpanded ? 20 : 24,
                 ),
               ),
@@ -230,7 +250,7 @@ class SidebarWidget extends StatelessWidget {
                   isExpanded
                       ? LucideIcons.panelLeftClose
                       : LucideIcons.panelLeftOpen,
-                  color: AppColors.textMuted,
+                  color: AppColors.getTextMuted(isDark),
                   size: isExpanded ? 20 : 24,
                 ),
               ),
@@ -248,6 +268,7 @@ class _SidebarItem extends StatelessWidget {
     required this.title,
     required this.isExpanded,
     required this.onTap,
+    required this.isDark,
     this.isActive = false,
     this.subtitle,
     this.trailing,
@@ -258,6 +279,7 @@ class _SidebarItem extends StatelessWidget {
   final String title;
   final bool isExpanded;
   final bool isActive;
+  final bool isDark;
   final String? subtitle;
   final String? trailing;
   final Color? trailingColor;
@@ -272,7 +294,7 @@ class _SidebarItem extends StatelessWidget {
       ),
       child: Material(
         color: isActive
-            ? AppColors.primaryBlue.withOpacity(0.1)
+            ? AppColors.getPrimaryBlue(isDark).withOpacity(0.1)
             : Colors.transparent,
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
         child: InkWell(
@@ -287,7 +309,9 @@ class _SidebarItem extends StatelessWidget {
               children: [
                 Icon(
                   icon,
-                  color: isActive ? AppColors.primaryBlue : AppColors.textMuted,
+                  color: isActive
+                      ? AppColors.getPrimaryBlue(isDark)
+                      : AppColors.getTextMuted(isDark),
                   size: 20,
                 ),
                 if (isExpanded) ...[
@@ -300,15 +324,20 @@ class _SidebarItem extends StatelessWidget {
                           title,
                           style: AppTextStyles.bodyMedium.copyWith(
                             color: isActive
-                                ? AppColors.primaryBlue
-                                : AppColors.textPrimary,
+                                ? AppColors.getPrimaryBlue(isDark)
+                                : AppColors.getTextPrimary(isDark),
                             fontWeight: isActive
                                 ? FontWeight.w500
                                 : FontWeight.w400,
                           ),
                         ),
                         if (subtitle != null)
-                          Text(subtitle!, style: AppTextStyles.caption),
+                          Text(
+                            subtitle!,
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.getTextMuted(isDark),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -316,7 +345,7 @@ class _SidebarItem extends StatelessWidget {
                     Text(
                       trailing!,
                       style: AppTextStyles.caption.copyWith(
-                        color: trailingColor ?? AppColors.textMuted,
+                        color: trailingColor ?? AppColors.getTextMuted(isDark),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
