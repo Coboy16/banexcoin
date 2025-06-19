@@ -103,6 +103,9 @@ dependencies:
   # responsive
   responsive_framework: ^1.5.1
 
+  # graficos
+  fl_chart: ^1.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
