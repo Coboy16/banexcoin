@@ -1,0 +1,70 @@
+import 'package:flutter/material.dart';
+
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '/core/layout/presentation/widgets/widgets.dart';
+import '/core/bloc/blocs.dart';
+import '/core/core.dart';
+
+class DesktopLayout extends StatelessWidget {
+  const DesktopLayout({
+    super.key,
+    required this.child,
+    required this.currentIndex,
+    required this.currentRoute,
+    required this.isSidebarExpanded,
+  });
+
+  final Widget child;
+  final int currentIndex;
+  final String currentRoute;
+  final bool isSidebarExpanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.primaryBackground,
+      body: Row(
+        children: [
+          // Sidebar
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: isSidebarExpanded ? 280 : 80,
+            child: SidebarWidget(
+              isExpanded: isSidebarExpanded,
+              currentIndex: currentIndex,
+              currentRoute: currentRoute,
+            ),
+          ),
+
+          // Main content
+          Expanded(
+            child: Column(
+              children: [
+                // Top bar
+                TopBarWidget(
+                  onMenuPressed: () {
+                    context.read<NavigationBloc>().add(
+                      const ToggleSidebarEvent(),
+                    );
+                  },
+                  onThemeToggle: () {
+                    context.read<ThemeBloc>().add(const ToggleThemeEvent());
+                  },
+                ),
+
+                // Body
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: child,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
