@@ -3,49 +3,58 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'dart:async';
-import 'dart:math';
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
+import '/features/trading_pair/domain/entities/entities.dart';
 
 class PriceDisplayWidget extends StatefulWidget {
-  const PriceDisplayWidget({super.key, required this.symbol});
+  const PriceDisplayWidget({
+    super.key,
+    required this.tradingPair,
+    required this.priceStats,
+  });
 
-  final String symbol;
+  final TradingPairEntity tradingPair;
+  final PriceStatsEntity priceStats;
 
   @override
   State<PriceDisplayWidget> createState() => _PriceDisplayWidgetState();
 }
 
 class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _priceAnimationController;
   late Animation<double> _scaleAnimation;
-  late Timer _priceUpdateTimer;
+  late Animation<Color?> _colorAnimation;
 
-  final Random _random = Random();
-
-  double _currentPrice = 43250.00;
-  double _previousPrice = 43250.00;
-  double _openPrice = 42194.50;
-  double _highPrice = 44125.00;
-  double _lowPrice = 41890.00;
-  double _volume = 1200000000;
-  bool _isPriceIncreasing = true;
+  TradingPairEntity? _previousTradingPair;
+  bool _isPriceIncreasing = false;
   bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
     _setupAnimations();
-    _initializePriceData();
-    _startPriceUpdates();
+    _previousTradingPair = widget.tradingPair;
+  }
+
+  @override
+  void didUpdateWidget(PriceDisplayWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (_previousTradingPair != null &&
+        widget.tradingPair.currentPrice != _previousTradingPair!.currentPrice) {
+      _isPriceIncreasing =
+          widget.tradingPair.currentPrice > _previousTradingPair!.currentPrice;
+      _animatePriceChange();
+    }
+    _previousTradingPair = widget.tradingPair;
   }
 
   void _setupAnimations() {
     _priceAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
@@ -55,61 +64,18 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
         curve: Curves.elasticOut,
       ),
     );
+
+    _colorAnimation = ColorTween(
+      begin: Colors.transparent,
+      end: Colors.transparent,
+    ).animate(_priceAnimationController);
   }
 
-  void _initializePriceData() {
-    final basePrice = _getBasePriceForSymbol(widget.symbol);
-    _currentPrice = basePrice;
-    _previousPrice = basePrice;
-    _openPrice = basePrice * (0.98 + _random.nextDouble() * 0.04); // ±2%
-    _highPrice = basePrice * (1.01 + _random.nextDouble() * 0.03); // +1-4%
-    _lowPrice = basePrice * (0.96 + _random.nextDouble() * 0.03); // -4-1%
-  }
-
-  double _getBasePriceForSymbol(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return 43250.0;
-      case 'ETH/USDT':
-        return 2650.0;
-      case 'BNB/USDT':
-        return 315.0;
-      case 'ADA/USDT':
-        return 0.485;
-      default:
-        return 1000.0;
-    }
-  }
-
-  void _startPriceUpdates() {
-    _priceUpdateTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        _updatePrice();
-      }
-    });
-  }
-
-  void _updatePrice() {
-    _previousPrice = _currentPrice;
-
-    // Simular cambio realista de precio
-    final changePercent = (_random.nextDouble() - 0.5) * 0.015; // ±0.75%
-    _currentPrice = _currentPrice * (1 + changePercent);
-
-    _isPriceIncreasing = _currentPrice > _previousPrice;
-
-    // Actualizar high/low si es necesario
-    if (_currentPrice > _highPrice) _highPrice = _currentPrice;
-    if (_currentPrice < _lowPrice) _lowPrice = _currentPrice;
-
-    // Simular cambio en volumen
-    _volume = _volume * (0.98 + _random.nextDouble() * 0.04);
-
+  void _animatePriceChange() {
     setState(() {
       _isAnimating = true;
     });
 
-    // Ejecutar animación
     _priceAnimationController.forward().then((_) {
       if (mounted) {
         _priceAnimationController.reverse().then((_) {
@@ -126,7 +92,6 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
   @override
   void dispose() {
     _priceAnimationController.dispose();
-    _priceUpdateTimer.cancel();
     super.dispose();
   }
 
@@ -137,42 +102,57 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
         final isDark = themeState.isDarkMode;
         final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
 
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(
-              color: _isAnimating
-                  ? (_isPriceIncreasing
-                            ? AppColors.getBuyGreen(isDark)
-                            : AppColors.getSellRed(isDark))
-                        .withOpacity(0.5)
-                  : AppColors.getBorderPrimary(isDark),
-              width: _isAnimating ? 2 : 1,
-            ),
-            boxShadow: _isAnimating
-                ? [
-                    BoxShadow(
-                      color:
-                          (_isPriceIncreasing
-                                  ? AppColors.getBuyGreen(isDark)
-                                  : AppColors.getSellRed(isDark))
-                              .withOpacity(0.2),
-                      blurRadius: 20,
-                      spreadRadius: 2,
-                    ),
-                  ]
-                : null,
-          ),
-          child: Column(
-            children: [
-              if (isDesktop)
-                _buildDesktopLayout(isDark)
-              else
-                _buildMobileLayout(isDark),
-            ],
-          ),
+        // Actualizar el color de animación según el tema
+        _colorAnimation = ColorTween(
+          begin: Colors.transparent,
+          end:
+              (_isPriceIncreasing
+                      ? AppColors.getBuyGreen(isDark)
+                      : AppColors.getSellRed(isDark))
+                  .withOpacity(0.1),
+        ).animate(_priceAnimationController);
+
+        return AnimatedBuilder(
+          animation: _colorAnimation,
+          builder: (context, child) {
+            return Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.getCardBackground(isDark),
+                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                border: Border.all(
+                  color: _isAnimating
+                      ? (_isPriceIncreasing
+                                ? AppColors.getBuyGreen(isDark)
+                                : AppColors.getSellRed(isDark))
+                            .withOpacity(0.5)
+                      : AppColors.getBorderPrimary(isDark),
+                  width: _isAnimating ? 2 : 1,
+                ),
+                boxShadow: _isAnimating
+                    ? [
+                        BoxShadow(
+                          color:
+                              (_isPriceIncreasing
+                                      ? AppColors.getBuyGreen(isDark)
+                                      : AppColors.getSellRed(isDark))
+                                  .withOpacity(0.2),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                children: [
+                  if (isDesktop)
+                    _buildDesktopLayout(isDark)
+                  else
+                    _buildMobileLayout(isDark),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -203,11 +183,19 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Current Price',
-          style: AppTextStyles.labelMedium.copyWith(
-            color: AppColors.getTextSecondary(isDark),
-          ),
+        Row(
+          children: [
+            Text(
+              'Current Price',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.getTextSecondary(isDark),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            _buildTrendIcon(isDark),
+            const Spacer(),
+            _buildLastUpdateIndicator(isDark),
+          ],
         ),
         const SizedBox(height: AppSpacing.sm),
         AnimatedBuilder(
@@ -218,16 +206,11 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: _isAnimating
-                      ? (_isPriceIncreasing
-                                ? AppColors.getBuyGreen(isDark)
-                                : AppColors.getSellRed(isDark))
-                            .withOpacity(0.1)
-                      : Colors.transparent,
+                  color: _colorAnimation.value,
                   borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 ),
                 child: AutoSizeText(
-                  '\$${_currentPrice.toStringAsFixed(_currentPrice >= 1 ? 2 : 4)}',
+                  widget.tradingPair.formattedCurrentPrice,
                   style: AppTextStyles.h1.copyWith(
                     fontSize: 42,
                     color: _isAnimating
@@ -249,10 +232,78 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     );
   }
 
+  Widget _buildTrendIcon(bool isDark) {
+    final trend = widget.priceStats.trend;
+    IconData icon;
+    Color color;
+
+    switch (trend) {
+      case PriceTrend.bullish:
+        icon = LucideIcons.trendingUp;
+        color = AppColors.getBuyGreen(isDark);
+        break;
+      case PriceTrend.bearish:
+        icon = LucideIcons.trendingDown;
+        color = AppColors.getSellRed(isDark);
+        break;
+      case PriceTrend.neutral:
+        icon = LucideIcons.minus;
+        color = AppColors.getTextMuted(isDark);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+      ),
+      child: Icon(icon, size: 14, color: color),
+    );
+  }
+
+  Widget _buildLastUpdateIndicator(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.getInfo(isDark).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(LucideIcons.clock, size: 12, color: AppColors.getInfo(isDark)),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            _formatLastUpdate(widget.priceStats.lastUpdateTime),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.getInfo(isDark),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatLastUpdate(DateTime lastUpdate) {
+    final now = DateTime.now();
+    final difference = now.difference(lastUpdate);
+
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return '${lastUpdate.hour.toString().padLeft(2, '0')}:${lastUpdate.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
   Widget _buildPriceChange(bool isDark) {
-    final changeAmount = _currentPrice - _openPrice;
-    final changePercent = ((changeAmount / _openPrice) * 100);
-    final isPositive = changeAmount >= 0;
+    final isPositive = widget.tradingPair.isPriceChangePositive;
 
     return Row(
       children: [
@@ -288,7 +339,7 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                '${isPositive ? '+' : ''}\$${changeAmount.toStringAsFixed(2)}',
+                widget.tradingPair.priceChange24h.toString(),
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: isPositive
                       ? AppColors.getBuyGreen(isDark)
@@ -314,7 +365,7 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
             borderRadius: BorderRadius.circular(AppBorderRadius.sm),
           ),
           child: Text(
-            '${isPositive ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
+            '${widget.tradingPair.priceChangePercent24h.toStringAsFixed(2)}%',
             style: AppTextStyles.bodyMedium.copyWith(
               color: isPositive
                   ? AppColors.getBuyGreen(isDark)
@@ -331,25 +382,28 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     final stats = [
       PriceStatData(
         label: '24h Open',
-        value: '\$${_openPrice.toStringAsFixed(_openPrice >= 1 ? 2 : 4)}',
+        value:
+            '\$${widget.priceStats.openPrice.toStringAsFixed(widget.priceStats.openPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.clock,
         color: AppColors.getInfo(isDark),
       ),
       PriceStatData(
         label: '24h High',
-        value: '\$${_highPrice.toStringAsFixed(_highPrice >= 1 ? 2 : 4)}',
+        value:
+            '\$${widget.priceStats.highPrice.toStringAsFixed(widget.priceStats.highPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.trendingUp,
         color: AppColors.getBuyGreen(isDark),
       ),
       PriceStatData(
         label: '24h Low',
-        value: '\$${_lowPrice.toStringAsFixed(_lowPrice >= 1 ? 2 : 4)}',
+        value:
+            '\$${widget.priceStats.lowPrice.toStringAsFixed(widget.priceStats.lowPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.trendingDown,
         color: AppColors.getSellRed(isDark),
       ),
       PriceStatData(
         label: '24h Volume',
-        value: _formatVolume(_volume),
+        value: _formatVolume(widget.priceStats.quoteVolume),
         icon: LucideIcons.chartBar,
         color: AppColors.getPrimaryBlue(isDark),
       ),
@@ -401,13 +455,13 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
 
   String _formatVolume(double volume) {
     if (volume >= 1000000000) {
-      return '${(volume / 1000000000).toStringAsFixed(1)}B USDT';
+      return '${(volume / 1000000000).toStringAsFixed(1)}B';
     } else if (volume >= 1000000) {
-      return '${(volume / 1000000).toStringAsFixed(1)}M USDT';
+      return '${(volume / 1000000).toStringAsFixed(1)}M';
     } else if (volume >= 1000) {
-      return '${(volume / 1000).toStringAsFixed(1)}K USDT';
+      return '${(volume / 1000).toStringAsFixed(1)}K';
     }
-    return '${volume.toStringAsFixed(0)} USDT';
+    return volume.toStringAsFixed(0);
   }
 }
 
@@ -425,56 +479,122 @@ class PriceStatData {
   });
 }
 
-class PriceStatCard extends StatelessWidget {
+class PriceStatCard extends StatefulWidget {
   const PriceStatCard({super.key, required this.stat, required this.isDark});
 
   final PriceStatData stat;
   final bool isDark;
 
   @override
+  State<PriceStatCard> createState() => _PriceStatCardState();
+}
+
+class _PriceStatCardState extends State<PriceStatCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  bool _isHovered = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.03).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.getSurfaceColor(isDark),
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(color: AppColors.getBorderSecondary(isDark)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: stat.color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+    return MouseRegion(
+      onEnter: (_) {
+        setState(() => _isHovered = true);
+        _animationController.forward();
+      },
+      onExit: (_) {
+        setState(() => _isHovered = false);
+        _animationController.reverse();
+      },
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.getSurfaceColor(widget.isDark),
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(
+                  color: _isHovered
+                      ? widget.stat.color.withOpacity(0.3)
+                      : AppColors.getBorderSecondary(widget.isDark),
                 ),
-                child: Icon(stat.icon, color: stat.color, size: 14),
+                boxShadow: _isHovered
+                    ? [
+                        BoxShadow(
+                          color: widget.stat.color.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  stat.label,
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.getTextSecondary(isDark),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: widget.stat.color.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.sm,
+                          ),
+                        ),
+                        child: Icon(
+                          widget.stat.icon,
+                          color: widget.stat.color,
+                          size: 14,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Flexible(
+                        child: Text(
+                          widget.stat.label,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.getTextSecondary(widget.isDark),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    widget.stat.value,
+                    style: AppTextStyles.bodyLarge.copyWith(
+                      color: AppColors.getTextPrimary(widget.isDark),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            stat.value,
-            style: AppTextStyles.bodyLarge.copyWith(
-              color: AppColors.getTextPrimary(isDark),
-              fontWeight: FontWeight.w600,
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
