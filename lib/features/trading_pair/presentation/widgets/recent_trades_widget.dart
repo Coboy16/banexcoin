@@ -291,7 +291,6 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
 
   Widget _buildFooter(bool isDark) {
     final buyTrades = _trades.where((t) => t.isBuy).length;
-    final sellTrades = _trades.length - buyTrades;
     final buyPercentage = _trades.isNotEmpty
         ? (buyTrades / _trades.length) * 100
         : 50;

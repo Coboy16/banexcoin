@@ -22,50 +22,55 @@ class DesktopLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      body: Row(
-        children: [
-          // Sidebar
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            width: isSidebarExpanded ? 280 : 80,
-            child: SidebarWidget(
-              isExpanded: isSidebarExpanded,
-              currentIndex: currentIndex,
-              currentRoute: currentRoute,
-            ),
-          ),
-
-          // Main content
-          Expanded(
-            child: Column(
-              children: [
-                // Top bar
-                TopBarWidget(
-                  onMenuPressed: () {
-                    context.read<NavigationBloc>().add(
-                      const ToggleSidebarEvent(),
-                    );
-                  },
-                  onThemeToggle: () {
-                    context.read<ThemeBloc>().add(const ToggleThemeEvent());
-                  },
+    return BlocBuilder<ThemeBloc, ThemeState>(
+      builder: (context, state) {
+        final isDark = state.isDarkMode;
+        return Scaffold(
+          backgroundColor: AppColors.getPrimaryBackground(isDark),
+          body: Row(
+            children: [
+              // Sidebar
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: isSidebarExpanded ? 280 : 80,
+                child: SidebarWidget(
+                  isExpanded: isSidebarExpanded,
+                  currentIndex: currentIndex,
+                  currentRoute: currentRoute,
                 ),
+              ),
 
-                // Body
-                Expanded(
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    child: child,
-                  ),
+              // Main content
+              Expanded(
+                child: Column(
+                  children: [
+                    // Top bar
+                    TopBarWidget(
+                      onMenuPressed: () {
+                        context.read<NavigationBloc>().add(
+                          const ToggleSidebarEvent(),
+                        );
+                      },
+                      onThemeToggle: () {
+                        context.read<ThemeBloc>().add(const ToggleThemeEvent());
+                      },
+                    ),
+
+                    // Body
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        child: child,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

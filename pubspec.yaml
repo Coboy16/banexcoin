@@ -41,9 +41,8 @@ dependencies:
     ^2.0.5
 
     # Cliente HTTP
-  chopper: ^8.1.0
-  html:
-    ^0.15.6
+  dio:
+    ^5.8.0+1
 
     # Programacion funcional
   dartz: ^0.10.1
@@ -106,6 +105,14 @@ dependencies:
   # graficos
   fl_chart: ^1.0.0
 
+  # WebSocket client
+  web_socket_channel: ^2.4.0
+
+  # Code generation
+  # freezed_annotation: ^2.4.1
+  json_annotation: ^4.9.0
+  connectivity_plus: ^5.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -116,6 +123,10 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  # Code generation
+  build_runner: ^2.4.7
+  # freezed: ^2.4.6
+  json_serializable: ^6.7.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
