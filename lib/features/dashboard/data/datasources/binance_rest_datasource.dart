@@ -3,48 +3,32 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 
 abstract class BinanceRestDataSource {
-  /// Obtiene ticker de 24 horas para un símbolo
   Future<TickerModel> getTicker24hr(String symbol);
-
-  /// Obtiene tickers de 24 horas para múltiples símbolos
   Future<List<TickerModel>> getAllTickers24hr();
-
-  /// Obtiene información del exchange
   Future<ExchangeInfoModel> getExchangeInfo();
-
-  /// Obtiene precio actual de un símbolo
   Future<double> getCurrentPrice(String symbol);
-
-  /// Obtiene libro de órdenes
   Future<DepthModel> getOrderBook(String symbol, {int limit = 20});
-
-  /// Verifica conectividad con la API
   Future<bool> checkConnectivity();
 }
 
 class BinanceRestDataSourceImpl implements BinanceRestDataSource {
-  static const String _baseUrl = 'https://api.binance.com/api/v3';
-
   final Dio _dio;
 
   BinanceRestDataSourceImpl({Dio? dio}) : _dio = dio ?? _createDio();
 
-  /// Crea cliente Dio con configuración optimizada
   static Dio _createDio() {
     final dio = Dio(
       BaseOptions(
-        baseUrl: _baseUrl,
-        connectTimeout: const Duration(seconds: 10),
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 10),
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 20),
+        sendTimeout: const Duration(seconds: 15),
         headers: {
           'Content-Type': 'application/json',
-          'User-Agent': 'DashboardApp/1.0',
+          'User-Agent': 'TradingDashboard/1.0',
         },
       ),
     );
 
-    // Interceptor para logging en desarrollo
     dio.interceptors.add(
       LogInterceptor(
         requestBody: false,
@@ -53,27 +37,19 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
       ),
     );
 
-    // Interceptor para manejo de errores
-    dio.interceptors.add(
-      InterceptorsWrapper(
-        onError: (error, handler) {
-          debugPrint('Error en API: ${error.message}');
-          if (error.response?.statusCode == 429) {
-            debugPrint('Rate limit excedido, implementar retry con backoff');
-          }
-          handler.next(error);
-        },
-      ),
-    );
-
     return dio;
   }
+
+  // URL base - usar directamente la API de Binance
+  String get _baseUrl => 'https://data-api.binance.vision/api/v3';
 
   @override
   Future<TickerModel> getTicker24hr(String symbol) async {
     try {
+      debugPrint('🌐 Requesting ticker for: $symbol');
+
       final response = await _dio.get(
-        '/ticker/24hr',
+        '$_baseUrl/ticker/24hr',
         queryParameters: {'symbol': symbol.toUpperCase()},
       );
 
@@ -95,7 +71,9 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   @override
   Future<List<TickerModel>> getAllTickers24hr() async {
     try {
-      final response = await _dio.get('/ticker/24hr');
+      debugPrint('🌐 Requesting all tickers');
+
+      final response = await _dio.get('$_baseUrl/ticker/24hr');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
@@ -116,7 +94,9 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   @override
   Future<ExchangeInfoModel> getExchangeInfo() async {
     try {
-      final response = await _dio.get('/exchangeInfo');
+      debugPrint('🌐 Requesting exchange info');
+
+      final response = await _dio.get('$_baseUrl/exchangeInfo');
 
       if (response.statusCode == 200) {
         return ExchangeInfoModel.fromJson(response.data);
@@ -136,8 +116,10 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   @override
   Future<double> getCurrentPrice(String symbol) async {
     try {
+      debugPrint('🌐 Requesting current price for: $symbol');
+
       final response = await _dio.get(
-        '/ticker/price',
+        '$_baseUrl/ticker/price',
         queryParameters: {'symbol': symbol.toUpperCase()},
       );
 
@@ -160,9 +142,14 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   @override
   Future<DepthModel> getOrderBook(String symbol, {int limit = 20}) async {
     try {
+      debugPrint('🌐 Requesting order book for: $symbol');
+
       final response = await _dio.get(
-        '/depth',
-        queryParameters: {'symbol': symbol.toUpperCase(), 'limit': limit},
+        '$_baseUrl/depth',
+        queryParameters: {
+          'symbol': symbol.toUpperCase(),
+          'limit': limit.toString(),
+        },
       );
 
       if (response.statusCode == 200) {
@@ -180,7 +167,18 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
     }
   }
 
-  /// Maneja excepciones de Dio y las convierte en excepciones de dominio
+  @override
+  Future<bool> checkConnectivity() async {
+    try {
+      debugPrint('🌐 Checking connectivity');
+
+      final response = await _dio.get('$_baseUrl/ping');
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   BinanceApiException _handleDioException(DioException e) {
     switch (e.type) {
       case DioExceptionType.connectionTimeout:
@@ -205,40 +203,31 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
       case DioExceptionType.cancel:
         return BinanceApiException('Solicitud cancelada');
       case DioExceptionType.connectionError:
-        return BinanceApiException('Error de conexión');
+        if (kIsWeb) {
+          return BinanceApiException(
+            'Error de CORS - Ejecuta con: flutter run -d chrome --web-browser-flag "--disable-web-security"',
+          );
+        }
+        return BinanceApiException('Error de conexión - Verifica tu internet');
       default:
         return BinanceApiException('Error de red desconocido: ${e.message}');
     }
   }
 
-  /// Verifica la conectividad de la API
-  @override
-  Future<bool> checkConnectivity() async {
-    try {
-      final response = await _dio.get('/ping');
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Obtiene el tiempo del servidor
   Future<int> getServerTime() async {
     try {
-      final response = await _dio.get('/time');
+      final response = await _dio.get('$_baseUrl/time');
       return response.data['serverTime'] as int;
     } catch (e) {
       return DateTime.now().millisecondsSinceEpoch;
     }
   }
 
-  /// Obtiene estadísticas del exchange
   Future<Map<String, dynamic>> getExchangeStatistics() async {
     try {
-      final response = await _dio.get('/ticker/24hr');
+      final response = await _dio.get('$_baseUrl/ticker/24hr');
       final tickers = response.data as List;
 
-      // Calcular estadísticas básicas
       double totalVolume = 0;
       int tradingPairs = 0;
       int gainers = 0;
@@ -272,7 +261,6 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   }
 }
 
-/// Excepción personalizada para errores de la API de Binance
 class BinanceApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -287,20 +275,16 @@ class BinanceApiException implements Exception {
   @override
   String toString() => 'BinanceApiException: $message';
 
-  /// Determina si el error es recuperable (reintentos automáticos)
   bool get isRetryable {
     if (isNetworkError) return true;
     if (statusCode == null) return false;
-
-    // Errores temporales del servidor
     return statusCode! >= 500 || statusCode == 429;
   }
 
-  /// Obtiene el delay sugerido para reintentos
   Duration get retryDelay {
     if (statusCode == 429) {
-      return const Duration(minutes: 1); // Rate limit
+      return const Duration(minutes: 1);
     }
-    return const Duration(seconds: 5); // Otros errores
+    return const Duration(seconds: 5);
   }
 }

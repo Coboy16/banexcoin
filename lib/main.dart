@@ -27,7 +27,7 @@ class BanexCoinApp extends StatelessWidget {
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         return MaterialApp.router(
-          title: 'BanexCoin - Crypto Trading Platform',
+          title: 'BanexCoin',
           debugShowCheckedModeBanner: false,
 
           theme: AppTheme.lightTheme,

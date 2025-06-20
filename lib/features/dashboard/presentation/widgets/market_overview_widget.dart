@@ -2,121 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
-import 'dart:async';
-import 'dart:math';
 
+import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
-class MarketOverviewWidget extends StatefulWidget {
+class MarketOverviewWidget extends StatelessWidget {
   const MarketOverviewWidget({super.key});
-
-  @override
-  State<MarketOverviewWidget> createState() => _MarketOverviewWidgetState();
-}
-
-class _MarketOverviewWidgetState extends State<MarketOverviewWidget> {
-  late Timer _updateTimer;
-  final Random _random = Random();
-
-  final List<MarketStatData> _marketStats = [
-    MarketStatData(
-      title: 'Market Cap',
-      value: '\$2.1T',
-      change: '+2.3%',
-      isPositive: true,
-      baseValue: 2.1,
-    ),
-    MarketStatData(
-      title: '24h Volume',
-      value: '\$89.5B',
-      change: '+5.7%',
-      isPositive: true,
-      baseValue: 89.5,
-    ),
-    MarketStatData(
-      title: 'BTC Dominance',
-      value: '52.4%',
-      change: '-0.8%',
-      isPositive: false,
-      baseValue: 52.4,
-    ),
-  ];
-
-  List<FlSpot> _chartData = [];
-  int _chartDataIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _generateInitialChartData();
-    _startUpdates();
-  }
-
-  @override
-  void dispose() {
-    _updateTimer.cancel();
-    super.dispose();
-  }
-
-  void _generateInitialChartData() {
-    _chartData = List.generate(50, (index) {
-      return FlSpot(
-        index.toDouble(),
-        2.0 + (_random.nextDouble() * 0.4), // Entre 2.0 y 2.4
-      );
-    });
-    _chartDataIndex = 50;
-  }
-
-  void _startUpdates() {
-    _updateTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        setState(() {
-          _updateMarketStats();
-          _updateChartData();
-        });
-      }
-    });
-  }
-
-  void _updateMarketStats() {
-    for (var stat in _marketStats) {
-      double changePercent = (_random.nextDouble() - 0.5) * 0.02; // ±1%
-      stat.baseValue = stat.baseValue * (1 + changePercent);
-
-      if (stat.title == 'Market Cap') {
-        stat.value = '\${stat.baseValue.toStringAsFixed(1)}T';
-      } else if (stat.title == '24h Volume') {
-        stat.value = '\${stat.baseValue.toStringAsFixed(1)}B';
-      } else {
-        stat.value = '${stat.baseValue.toStringAsFixed(1)}%';
-      }
-
-      // Simular cambios en porcentaje
-      double newChange = (_random.nextDouble() - 0.5) * 10; // ±5%
-      stat.isPositive = newChange >= 0;
-      stat.change =
-          '${newChange >= 0 ? '+' : ''}${newChange.toStringAsFixed(1)}%';
-    }
-  }
-
-  void _updateChartData() {
-    if (_chartData.length >= 100) {
-      _chartData.removeAt(0);
-      for (int i = 0; i < _chartData.length; i++) {
-        _chartData[i] = FlSpot(i.toDouble(), _chartData[i].y);
-      }
-      _chartDataIndex = _chartData.length;
-    }
-
-    double lastValue = _chartData.isNotEmpty ? _chartData.last.y : 2.1;
-    double newValue = lastValue + (_random.nextDouble() - 0.5) * 0.1;
-    newValue = newValue.clamp(1.5, 3.0); // Mantener en rango realista
-
-    _chartData.add(FlSpot(_chartDataIndex.toDouble(), newValue));
-    _chartDataIndex++;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -124,51 +16,284 @@ class _MarketOverviewWidgetState extends State<MarketOverviewWidget> {
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(color: AppColors.getBorderPrimary(isDark)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Market Overview',
-                style: AppTextStyles.h3.copyWith(
-                  color: AppColors.getTextPrimary(isDark),
-                ),
+        return BlocBuilder<MarketDataBloc, MarketDataState>(
+          builder: (context, marketState) {
+            return Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.getCardBackground(isDark),
+                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                border: Border.all(color: AppColors.getBorderPrimary(isDark)),
               ),
-              const SizedBox(height: AppSpacing.lg),
-              _buildMarketStats(isDark),
-              const SizedBox(height: AppSpacing.lg),
-              _buildChart(isDark),
-            ],
-          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(isDark, marketState),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildContent(isDark, marketState),
+                ],
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildMarketStats(bool isDark) {
+  Widget _buildHeader(bool isDark, MarketDataState marketState) {
     return Row(
-      children: _marketStats
-          .map(
-            (stat) => Expanded(
-              child: Padding(
-                padding: EdgeInsets.only(
-                  right: stat == _marketStats.last ? 0 : AppSpacing.md,
-                ),
-                child: MarketStatCard(stat: stat, isDark: isDark),
-              ),
-            ),
-          )
-          .toList(),
+      children: [
+        Text(
+          'Market Overview',
+          style: AppTextStyles.h3.copyWith(
+            color: AppColors.getTextPrimary(isDark),
+          ),
+        ),
+        const Spacer(),
+        if (marketState is MarketDataLoaded)
+          _buildLastUpdated(isDark, marketState),
+      ],
     );
   }
 
-  Widget _buildChart(bool isDark) {
+  Widget _buildLastUpdated(bool isDark, MarketDataLoaded state) {
+    final lastUpdated = state.lastUpdated;
+    final timeDiff = DateTime.now().difference(lastUpdated);
+
+    String timeText;
+    if (timeDiff.inMinutes < 1) {
+      timeText = 'Just now';
+    } else if (timeDiff.inMinutes < 60) {
+      timeText = '${timeDiff.inMinutes}m ago';
+    } else {
+      timeText = '${timeDiff.inHours}h ago';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.getSurfaceColor(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            LucideIcons.clock,
+            size: 12,
+            color: AppColors.getTextMuted(isDark),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            'Updated $timeText',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(bool isDark, MarketDataState marketState) {
+    if (marketState is MarketDataLoading) {
+      return _buildLoadingState(isDark);
+    } else if (marketState is MarketDataLoaded) {
+      return _buildLoadedState(marketState, isDark);
+    } else if (marketState is MarketDataError) {
+      return _buildErrorState(marketState, isDark);
+    } else {
+      return _buildInitialState(isDark);
+    }
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Column(
+      children: [
+        _buildMarketStatsLoading(isDark),
+        const SizedBox(height: AppSpacing.lg),
+        _buildChartLoading(isDark),
+      ],
+    );
+  }
+
+  Widget _buildMarketStatsLoading(bool isDark) {
+    return Row(
+      children: List.generate(3, (index) {
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: index < 2 ? AppSpacing.md : 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 80,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: AppColors.getSurfaceColor(isDark),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Container(
+                  width: 120,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: AppColors.getSurfaceColor(isDark),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  width: 60,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: AppColors.getSurfaceColor(isDark),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildChartLoading(bool isDark) {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: AppColors.getSurfaceColor(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+      ),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AppColors.getPrimaryBlue(isDark),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadedState(MarketDataLoaded state, bool isDark) {
+    return Column(
+      children: [
+        _buildMarketStats(state, isDark),
+        const SizedBox(height: AppSpacing.lg),
+        _buildChart(state, isDark),
+      ],
+    );
+  }
+
+  Widget _buildMarketStats(MarketDataLoaded state, bool isDark) {
+    final statistics = state.marketStatistics;
+    final tickers = state.tickers.values.toList();
+
+    // Calcular estadísticas en tiempo real si no tenemos desde la API
+    final realTimeStats = _calculateRealTimeStats(tickers, statistics);
+
+    return Row(
+      children: [
+        Expanded(
+          child: MarketStatRealCard(
+            title: 'Total Volume (24h)',
+            value: realTimeStats['totalVolume'] as String,
+            change: realTimeStats['volumeChange'] as String,
+            isPositive: realTimeStats['volumeChangePositive'] as bool,
+            isDark: isDark,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: MarketStatRealCard(
+            title: 'Gainers',
+            value: '${realTimeStats['gainers']} pairs',
+            change: '${realTimeStats['gainersPercent']}%',
+            isPositive: true,
+            isDark: isDark,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Expanded(
+          child: MarketStatRealCard(
+            title: 'Losers',
+            value: '${realTimeStats['losers']} pairs',
+            change: '${realTimeStats['losersPercent']}%',
+            isPositive: false,
+            isDark: isDark,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Map<String, dynamic> _calculateRealTimeStats(
+    List<TickerEntity> tickers,
+    MarketStatistics? statistics,
+  ) {
+    if (tickers.isEmpty) {
+      return {
+        'totalVolume': '\$0.00',
+        'volumeChange': '+0.0%',
+        'volumeChangePositive': true,
+        'gainers': 0,
+        'losers': 0,
+        'gainersPercent': '0.0',
+        'losersPercent': '0.0',
+      };
+    }
+
+    // Calcular volumen total
+    double totalVolume = 0;
+    int gainers = 0;
+    int losers = 0;
+
+    for (final ticker in tickers) {
+      final volume = double.tryParse(ticker.quoteVolume) ?? 0;
+      totalVolume += volume;
+
+      if (ticker.isPriceChangePositive) {
+        gainers++;
+      } else {
+        losers++;
+      }
+    }
+
+    final gainersPercent = ((gainers / tickers.length) * 100).toStringAsFixed(
+      1,
+    );
+    final losersPercent = ((losers / tickers.length) * 100).toStringAsFixed(1);
+
+    String volumeText;
+    if (totalVolume >= 1000000000) {
+      volumeText = '\$${(totalVolume / 1000000000).toStringAsFixed(2)}B';
+    } else if (totalVolume >= 1000000) {
+      volumeText = '\$${(totalVolume / 1000000).toStringAsFixed(2)}M';
+    } else {
+      volumeText = '\$${totalVolume.toStringAsFixed(2)}';
+    }
+
+    return {
+      'totalVolume': volumeText,
+      'volumeChange': '+2.5%', // Placeholder - en producción calcular real
+      'volumeChangePositive': true,
+      'gainers': gainers,
+      'losers': losers,
+      'gainersPercent': gainersPercent,
+      'losersPercent': losersPercent,
+    };
+  }
+
+  Widget _buildChart(MarketDataLoaded state, bool isDark) {
+    final topGainers = state.getTopGainers(limit: 5);
+
+    if (topGainers.isEmpty) {
+      return _buildChartEmpty(isDark);
+    }
+
     return Container(
       height: 200,
       decoration: BoxDecoration(
@@ -178,123 +303,207 @@ class _MarketOverviewWidgetState extends State<MarketOverviewWidget> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.md),
-        child: LineChart(
-          LineChartData(
-            gridData: FlGridData(
-              show: true,
-              drawVerticalLine: false,
-              horizontalInterval: 0.2,
-              getDrawingHorizontalLine: (value) {
-                return FlLine(
-                  color: AppColors.getBorderSecondary(isDark),
-                  strokeWidth: 1,
-                );
-              },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Top Performers (24h)',
+              style: AppTextStyles.labelMedium.copyWith(
+                color: AppColors.getTextSecondary(isDark),
+              ),
             ),
-            titlesData: FlTitlesData(
-              show: true,
-              rightTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              topTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              bottomTitles: const AxisTitles(
-                sideTitles: SideTitles(showTitles: false),
-              ),
-              leftTitles: AxisTitles(
-                sideTitles: SideTitles(
-                  showTitles: true,
-                  interval: 0.4,
-                  getTitlesWidget: (value, meta) {
-                    return Text(
-                      '\${value.toStringAsFixed(1)}T',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.getTextMuted(isDark),
+            const SizedBox(height: AppSpacing.md),
+            Expanded(
+              child: BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.spaceAround,
+                  maxY: _getMaxChange(topGainers),
+                  barTouchData: BarTouchData(
+                    touchTooltipData: BarTouchTooltipData(
+                      tooltipBorder: BorderSide(
+                        color: AppColors.getBorderPrimary(isDark),
                       ),
-                    );
-                  },
-                  reservedSize: 40,
-                ),
-              ),
-            ),
-            borderData: FlBorderData(show: false),
-            minX: _chartData.isNotEmpty ? _chartData.first.x : 0,
-            maxX: _chartData.isNotEmpty ? _chartData.last.x : 50,
-            minY: 1.5,
-            maxY: 3.0,
-            lineBarsData: [
-              LineChartBarData(
-                spots: _chartData,
-                isCurved: true,
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.getPrimaryBlue(isDark),
-                    AppColors.getPrimaryBlue(isDark).withOpacity(0.7),
-                  ],
-                ),
-                barWidth: 2,
-                isStrokeCapRound: true,
-                dotData: const FlDotData(show: false),
-                belowBarData: BarAreaData(
-                  show: true,
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      AppColors.getPrimaryBlue(isDark).withOpacity(0.1),
-                      AppColors.getPrimaryBlue(isDark).withOpacity(0.05),
-                    ],
+                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                        return BarTooltipItem(
+                          '${topGainers[group.x.toInt()].symbol}\n${rod.toY.toStringAsFixed(2)}%',
+                          TextStyle(
+                            color: AppColors.getTextPrimary(isDark),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-            ],
-            lineTouchData: LineTouchData(
-              touchTooltipData: LineTouchTooltipData(
-                tooltipBorder: BorderSide(
-                  color: AppColors.getBorderPrimary(isDark),
-                ),
-                getTooltipItems: (touchedSpots) {
-                  return touchedSpots.map((spot) {
-                    return LineTooltipItem(
-                      '\${spot.y.toStringAsFixed(2)}T',
-                      TextStyle(
-                        color: AppColors.getTextPrimary(isDark),
-                        fontWeight: FontWeight.bold,
+                  titlesData: FlTitlesData(
+                    show: true,
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        getTitlesWidget: (value, meta) {
+                          if (value.toInt() < topGainers.length) {
+                            final symbol = topGainers[value.toInt()].symbol;
+                            return Text(
+                              symbol.length > 7
+                                  ? symbol.substring(0, 7)
+                                  : symbol,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.getTextMuted(isDark),
+                                fontSize: 10,
+                              ),
+                            );
+                          }
+                          return const SizedBox.shrink();
+                        },
+                        reservedSize: 30,
                       ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: _getMaxChange(topGainers) / 4,
+                        getTitlesWidget: (value, meta) {
+                          return Text(
+                            '${value.toStringAsFixed(1)}%',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.getTextMuted(isDark),
+                            ),
+                          );
+                        },
+                        reservedSize: 40,
+                      ),
+                    ),
+                  ),
+                  borderData: FlBorderData(show: false),
+                  barGroups: topGainers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final ticker = entry.value;
+                    return BarChartGroupData(
+                      x: index,
+                      barRods: [
+                        BarChartRodData(
+                          toY: ticker.priceChangePercentAsDouble,
+                          color: AppColors.getBuyGreen(isDark),
+                          width: 16,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
                     );
-                  }).toList();
-                },
+                  }).toList(),
+                ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
+
+  double _getMaxChange(List<TickerEntity> tickers) {
+    if (tickers.isEmpty) return 10.0;
+    final maxChange = tickers
+        .map((t) => t.priceChangePercentAsDouble)
+        .reduce((a, b) => a > b ? a : b);
+    return (maxChange * 1.2).clamp(5.0, double.infinity);
+  }
+
+  Widget _buildChartEmpty(bool isDark) {
+    return Container(
+      height: 200,
+      decoration: BoxDecoration(
+        color: AppColors.getSurfaceColor(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        border: Border.all(color: AppColors.getBorderSecondary(isDark)),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              LucideIcons.chartBar,
+              color: AppColors.getTextMuted(isDark),
+              size: 48,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'No data available for chart',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.getTextMuted(isDark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState(MarketDataError error, bool isDark) {
+    return Column(
+      children: [
+        Icon(
+          LucideIcons.triangleAlert,
+          color: AppColors.getError(isDark),
+          size: 48,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Failed to load market overview',
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.getTextPrimary(isDark),
+          ),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Text(
+          error.friendlyMessage,
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.getTextSecondary(isDark),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInitialState(bool isDark) {
+    return Column(
+      children: [
+        Icon(
+          LucideIcons.trendingUp,
+          color: AppColors.getTextMuted(isDark),
+          size: 48,
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Text(
+          'Initialize market data to see overview',
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.getTextMuted(isDark),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class MarketStatData {
+class MarketStatRealCard extends StatelessWidget {
   final String title;
-  String value;
-  String change;
-  bool isPositive;
-  double baseValue;
+  final String value;
+  final String change;
+  final bool isPositive;
+  final bool isDark;
 
-  MarketStatData({
+  const MarketStatRealCard({
+    super.key,
     required this.title,
     required this.value,
     required this.change,
     required this.isPositive,
-    required this.baseValue,
+    required this.isDark,
   });
-}
-
-class MarketStatCard extends StatelessWidget {
-  const MarketStatCard({super.key, required this.stat, required this.isDark});
-
-  final MarketStatData stat;
-  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -302,14 +511,14 @@ class MarketStatCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          stat.title,
+          title,
           style: AppTextStyles.labelMedium.copyWith(
             color: AppColors.getTextSecondary(isDark),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          stat.value,
+          value,
           style: AppTextStyles.h4.copyWith(
             color: AppColors.getTextPrimary(isDark),
             fontWeight: FontWeight.w600,
@@ -319,19 +528,17 @@ class MarketStatCard extends StatelessWidget {
         Row(
           children: [
             Icon(
-              stat.isPositive
-                  ? LucideIcons.trendingUp
-                  : LucideIcons.trendingDown,
+              isPositive ? LucideIcons.trendingUp : LucideIcons.trendingDown,
               size: 12,
-              color: stat.isPositive
+              color: isPositive
                   ? AppColors.getBuyGreen(isDark)
                   : AppColors.getSellRed(isDark),
             ),
             const SizedBox(width: AppSpacing.xs),
             Text(
-              stat.change,
+              change,
               style: AppTextStyles.bodySmall.copyWith(
-                color: stat.isPositive
+                color: isPositive
                     ? AppColors.getBuyGreen(isDark)
                     : AppColors.getSellRed(isDark),
                 fontWeight: FontWeight.w500,
