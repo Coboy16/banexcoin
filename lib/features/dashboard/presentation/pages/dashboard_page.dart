@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart'; // Importado para consistencia de iconos
 
 import '/features/dashboard/presentation/widgets/widgets.dart';
 import '/core/bloc/blocs.dart';
@@ -14,7 +15,6 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  // Símbolos principales para mostrar en el dashboard
   final List<String> _mainSymbols = [
     'BTCUSDT',
     'ETHUSDT',
@@ -31,7 +31,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _initializeMarketData() {
-    // Inicializar el BLoC con datos de mercado
     context.read<MarketDataBloc>().add(
       InitializeMarketData(
         symbols: _mainSymbols,
@@ -57,7 +56,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(isDark, marketState),
+                    _buildHeader(isDark, marketState, isDesktop),
                     const SizedBox(height: AppSpacing.xl),
                     _buildConnectionStatus(isDark, marketState),
                     const SizedBox(height: AppSpacing.lg),
@@ -74,8 +73,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildHeader(bool isDark, MarketDataState marketState) {
+  Widget _buildHeader(
+    bool isDark,
+    MarketDataState marketState,
+    bool isDesktop,
+  ) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           child: Column(
@@ -83,9 +87,8 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               Text(
                 'Trading Dashboard',
-                style: AppTextStyles.h1.copyWith(
-                  color: AppColors.getTextPrimary(isDark),
-                ),
+                style: (isDesktop ? AppTextStyles.h1 : AppTextStyles.h2)
+                    .copyWith(color: AppColors.getTextPrimary(isDark)),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
@@ -97,7 +100,8 @@ class _DashboardPageState extends State<DashboardPage> {
             ],
           ),
         ),
-        _buildHeaderActions(isDark, marketState),
+        // MODIFICACIÓN: Pasar 'isDesktop' a las acciones
+        _buildHeaderActions(isDark, marketState, isDesktop),
       ],
     );
   }
@@ -113,52 +117,80 @@ class _DashboardPageState extends State<DashboardPage> {
     return 'Monitor your portfolio and market trends';
   }
 
-  Widget _buildHeaderActions(bool isDark, MarketDataState marketState) {
-    return Row(
-      children: [
-        // Refresh button
-        IconButton(
-          onPressed: marketState is! MarketDataLoading
-              ? () => _refreshData()
-              : null,
-          icon: Icon(Icons.refresh, color: AppColors.getPrimaryBlue(isDark)),
-          tooltip: 'Refresh Data',
-        ),
-        const SizedBox(width: AppSpacing.sm),
-
-        // Add to watchlist button
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.md,
-            vertical: AppSpacing.sm,
+  Widget _buildHeaderActions(
+    bool isDark,
+    MarketDataState marketState,
+    bool isDesktop,
+  ) {
+    if (isDesktop) {
+      // VISTA WEB/DESKTOP (CÓDIGO ORIGINAL)
+      return Row(
+        children: [
+          IconButton(
+            onPressed: marketState is! MarketDataLoading
+                ? () => _refreshData()
+                : null,
+            icon: Icon(Icons.refresh, color: AppColors.getPrimaryBlue(isDark)),
+            tooltip: 'Refresh Data',
           ),
-          decoration: BoxDecoration(
-            color: AppColors.getPrimaryBlue(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-          ),
-          child: InkWell(
-            onTap: () => _showAddSymbolDialog(),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.add,
-                  color: AppColors.getTextPrimary(!isDark),
-                  size: 16,
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Text(
-                  'Add Symbol',
-                  style: AppTextStyles.buttonMedium.copyWith(
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.getPrimaryBlue(isDark),
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            ),
+            child: InkWell(
+              onTap: () => _showAddSymbolDialog(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.add,
                     color: AppColors.getTextPrimary(!isDark),
+                    size: 16,
                   ),
-                ),
-              ],
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(
+                    'Add Symbol',
+                    style: AppTextStyles.buttonMedium.copyWith(
+                      color: AppColors.getTextPrimary(!isDark),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    } else {
+      // VISTA MÓVIL (CÓDIGO MODIFICADO Y SIMPLIFICADO)
+      return Row(
+        children: [
+          IconButton(
+            onPressed: marketState is! MarketDataLoading
+                ? () => _refreshData()
+                : null,
+            icon: Icon(
+              LucideIcons.refreshCw,
+              color: AppColors.getPrimaryBlue(isDark),
+            ),
+            tooltip: 'Refresh Data',
+          ),
+          IconButton(
+            onPressed: () => _showAddSymbolDialog(),
+            icon: Icon(
+              LucideIcons.plus,
+              color: AppColors.getPrimaryBlue(isDark),
+            ),
+            tooltip: 'Add Symbol',
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildConnectionStatus(bool isDark, MarketDataState marketState) {
@@ -239,7 +271,6 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               TradingPairsWidget(marketState: marketState),
               const SizedBox(height: AppSpacing.lg),
-
               const MarketOverviewWidget(),
             ],
           ),
@@ -278,7 +309,6 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-// Widget para agregar nuevos símbolos
 class AddSymbolDialog extends StatefulWidget {
   final Function(String) onSymbolAdded;
 

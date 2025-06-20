@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:go_router/go_router.dart';
@@ -22,104 +21,122 @@ class MobileLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.primaryBackground,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                LucideIcons.trendingUp,
-                color: AppColors.textPrimary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Text('BanexCoin', style: AppTextStyles.h4),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              // Search functionality
-            },
-            icon: const Icon(LucideIcons.search),
-          ),
-          IconButton(
-            onPressed: () {
-              context.read<ThemeBloc>().add(const ToggleThemeEvent());
-            },
-            icon: BlocBuilder<ThemeBloc, ThemeState>(
-              builder: (context, state) {
-                return Icon(
-                  state.isDarkMode ? LucideIcons.sun : LucideIcons.moon,
-                );
-              },
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              // Notifications
-            },
-            icon: const Icon(LucideIcons.bell),
-          ),
-        ],
-      ),
-      body: Padding(padding: const EdgeInsets.all(AppSpacing.md), child: child),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: AppColors.secondaryBackground,
-        selectedItemColor: AppColors.primaryBlue,
-        unselectedItemColor: AppColors.textMuted,
-        currentIndex: currentIndex.clamp(0, 3), // Only show 4 main items
-        onTap: (index) {
-          final routes = [
-            AppRouter.dashboard,
-            AppRouter.tradingPairs,
-            AppRouter.orderBook,
-            AppRouter.calculator,
-          ];
+    return BlocBuilder<ThemeBloc, ThemeState>(
+      builder: (context, themeState) {
+        final isDark = themeState.isDarkMode;
 
-          if (index < routes.length) {
-            context.go(routes[index]);
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.layoutDashboard),
-            label: 'Dashboard',
+        return Scaffold(
+          backgroundColor: AppColors.getPrimaryBackground(isDark),
+          appBar: AppBar(
+            backgroundColor: AppColors.getSecondaryBackground(isDark),
+            elevation: 0,
+            title: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.getPrimaryBlue(isDark),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    LucideIcons.trendingUp,
+                    color: AppColors.getTextPrimary(!isDark),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'BanexCoin',
+                  style: AppTextStyles.h4.copyWith(
+                    color: AppColors.getTextPrimary(isDark),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                onPressed: () {
+                  /* Search functionality */
+                },
+                icon: Icon(
+                  LucideIcons.search,
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  context.read<ThemeBloc>().add(const ToggleThemeEvent());
+                },
+                icon: BlocBuilder<ThemeBloc, ThemeState>(
+                  builder: (context, state) {
+                    return Icon(
+                      state.isDarkMode ? LucideIcons.sun : LucideIcons.moon,
+                      color: AppColors.getTextSecondary(isDark),
+                    );
+                  },
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  /* Notifications */
+                },
+                icon: Icon(
+                  LucideIcons.bell,
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.chartCandlestick),
-            label: 'Trading',
+          body: Padding(padding: const EdgeInsets.all(0), child: child),
+          bottomNavigationBar: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: AppColors.getSecondaryBackground(isDark),
+            selectedItemColor: AppColors.getPrimaryBlue(isDark),
+            unselectedItemColor: AppColors.getTextMuted(isDark),
+            currentIndex: currentIndex.clamp(0, 3),
+            onTap: (index) {
+              final routes = [
+                AppRouter.dashboard,
+                AppRouter.tradingPairs,
+                AppRouter.orderBook,
+                AppRouter.calculator,
+              ];
+              if (index < routes.length) {
+                context.go(routes[index]);
+              }
+            },
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(LucideIcons.layoutDashboard),
+                label: 'Dashboard',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(LucideIcons.chartCandlestick),
+                label: 'Trading',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(LucideIcons.bookOpen),
+                label: 'Orders',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(LucideIcons.calculator),
+                label: 'Calculator',
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.bookOpen),
-            label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(LucideIcons.calculator),
-            label: 'Calculator',
-          ),
-        ],
-      ),
-      drawer: _buildMobileDrawer(context),
+          drawer: _buildMobileDrawer(context, isDark),
+        );
+      },
     );
   }
 
-  Widget _buildMobileDrawer(BuildContext context) {
+  Widget _buildMobileDrawer(BuildContext context, bool isDark) {
     return Drawer(
-      backgroundColor: AppColors.secondaryBackground,
+      backgroundColor: AppColors.getSecondaryBackground(isDark),
       child: SafeArea(
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Row(
@@ -128,24 +145,26 @@ class MobileLayout extends StatelessWidget {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
+                      color: AppColors.getPrimaryBlue(isDark),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       LucideIcons.trendingUp,
-                      color: AppColors.textPrimary,
+                      color: AppColors.getTextPrimary(!isDark),
                       size: 24,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
-                  Text('BanexCoin', style: AppTextStyles.h3),
+                  Text(
+                    'BanexCoin',
+                    style: AppTextStyles.h3.copyWith(
+                      color: AppColors.getTextPrimary(isDark),
+                    ),
+                  ),
                 ],
               ),
             ),
-
-            const Divider(),
-
-            // Navigation items
+            Divider(color: AppColors.getBorderPrimary(isDark)),
             Expanded(
               child: ListView(
                 children: [
@@ -154,26 +173,30 @@ class MobileLayout extends StatelessWidget {
                     icon: LucideIcons.user,
                     title: 'Portfolio',
                     route: AppRouter.portfolio,
+                    isDark: isDark,
                   ),
                   _buildDrawerItem(
                     context,
                     icon: LucideIcons.settings,
                     title: 'Settings',
                     route: AppRouter.settings,
+                    isDark: isDark,
                   ),
-                  const Divider(),
+                  Divider(color: AppColors.getBorderPrimary(isDark)),
                   ListTile(
                     leading: BlocBuilder<ThemeBloc, ThemeState>(
                       builder: (context, state) {
                         return Icon(
                           state.isDarkMode ? LucideIcons.sun : LucideIcons.moon,
-                          color: AppColors.textMuted,
+                          color: AppColors.getTextMuted(isDark),
                         );
                       },
                     ),
                     title: Text(
                       'Toggle Theme',
-                      style: AppTextStyles.bodyMedium,
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.getTextPrimary(isDark),
+                      ),
                     ),
                     onTap: () {
                       context.read<ThemeBloc>().add(const ToggleThemeEvent());
@@ -183,16 +206,14 @@ class MobileLayout extends StatelessWidget {
                 ],
               ),
             ),
-
-            // User info
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
+                  color: AppColors.getCardBackground(isDark),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.borderPrimary),
+                  border: Border.all(color: AppColors.getBorderPrimary(isDark)),
                 ),
                 child: Row(
                   children: [
@@ -200,12 +221,12 @@ class MobileLayout extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: AppColors.primaryBlue,
+                        color: AppColors.getPrimaryBlue(isDark),
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         LucideIcons.user,
-                        color: AppColors.textPrimary,
+                        color: AppColors.getTextPrimary(!isDark),
                         size: 16,
                       ),
                     ),
@@ -217,11 +238,16 @@ class MobileLayout extends StatelessWidget {
                           Text(
                             'John Doe',
                             style: AppTextStyles.bodyMedium.copyWith(
-                              color: AppColors.textPrimary,
+                              color: AppColors.getTextPrimary(isDark),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          Text('Premium User', style: AppTextStyles.caption),
+                          Text(
+                            'Premium User',
+                            style: AppTextStyles.caption.copyWith(
+                              color: AppColors.getTextSecondary(isDark),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -240,23 +266,28 @@ class MobileLayout extends StatelessWidget {
     required IconData icon,
     required String title,
     required String route,
+    required bool isDark,
   }) {
     final isActive = currentRoute == route;
 
     return ListTile(
       leading: Icon(
         icon,
-        color: isActive ? AppColors.primaryBlue : AppColors.textMuted,
+        color: isActive
+            ? AppColors.getPrimaryBlue(isDark)
+            : AppColors.getTextMuted(isDark),
       ),
       title: Text(
         title,
         style: AppTextStyles.bodyMedium.copyWith(
-          color: isActive ? AppColors.primaryBlue : AppColors.textPrimary,
+          color: isActive
+              ? AppColors.getPrimaryBlue(isDark)
+              : AppColors.getTextPrimary(isDark),
           fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,
         ),
       ),
       selected: isActive,
-      selectedTileColor: AppColors.primaryBlue.withOpacity(0.1),
+      selectedTileColor: AppColors.getPrimaryBlue(isDark).withOpacity(0.1),
       onTap: () {
         context.go(route);
         Navigator.of(context).pop();

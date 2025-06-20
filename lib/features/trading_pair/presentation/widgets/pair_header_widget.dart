@@ -1,3 +1,4 @@
+import 'package:banexcoin/features/features.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -6,9 +7,16 @@ import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
 class PairHeaderWidget extends StatefulWidget {
-  const PairHeaderWidget({super.key, required this.symbol});
+  const PairHeaderWidget({
+    super.key,
+    required this.symbol,
+    required this.symbolInfo,
+    required this.isStreaming,
+  });
 
   final String symbol;
+  final SymbolInfoTraiding symbolInfo;
+  final bool isStreaming;
 
   @override
   State<PairHeaderWidget> createState() => _PairHeaderWidgetState();
@@ -78,20 +86,36 @@ class _PairHeaderWidgetState extends State<PairHeaderWidget> {
           ),
         ],
       ),
-      child: Icon(_getPairIcon(widget.symbol), color: Colors.white, size: 24),
+      child: Icon(
+        _getPairIcon(widget.symbolInfo.baseAsset),
+        color: Colors.white,
+        size: 24,
+      ),
     );
   }
 
-  IconData _getPairIcon(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
+  IconData _getPairIcon(String baseAsset) {
+    switch (baseAsset.toUpperCase()) {
+      case 'BTC':
         return LucideIcons.bitcoin;
-      case 'ETH/USDT':
+      case 'ETH':
         return LucideIcons.hexagon;
-      case 'BNB/USDT':
+      case 'BNB':
         return LucideIcons.triangle;
-      case 'ADA/USDT':
+      case 'ADA':
         return LucideIcons.circle;
+      case 'SOL':
+        return LucideIcons.sun;
+      case 'DOT':
+        return LucideIcons.circle;
+      case 'MATIC':
+        return LucideIcons.pentagon;
+      case 'AVAX':
+        return LucideIcons.mountain;
+      case 'LINK':
+        return LucideIcons.link;
+      case 'UNI':
+        return LucideIcons.hexagon;
       default:
         return LucideIcons.coins;
     }
@@ -105,52 +129,23 @@ class _PairHeaderWidgetState extends State<PairHeaderWidget> {
           Row(
             children: [
               Text(
-                widget.symbol,
+                '${widget.symbolInfo.baseAsset}/${widget.symbolInfo.quoteAsset}',
                 style: AppTextStyles.h2.copyWith(
                   color: AppColors.getTextPrimary(isDark),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.getSuccess(isDark).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                  border: Border.all(
-                    color: AppColors.getSuccess(isDark).withOpacity(0.3),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.getSuccess(isDark),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.xs),
-                    Text(
-                      'LIVE',
-                      style: AppTextStyles.caption.copyWith(
-                        color: AppColors.getSuccess(isDark),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _buildStreamingIndicator(isDark),
+              const SizedBox(width: AppSpacing.sm),
+              _buildStatusBadge(isDark),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            _getPairDescription(widget.symbol),
+            _getPairDescription(
+              widget.symbolInfo.baseAsset,
+              widget.symbolInfo.quoteAsset,
+            ),
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.getTextSecondary(isDark),
             ),
@@ -160,19 +155,113 @@ class _PairHeaderWidgetState extends State<PairHeaderWidget> {
     );
   }
 
-  String _getPairDescription(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return 'Bitcoin / Tether USD';
-      case 'ETH/USDT':
-        return 'Ethereum / Tether USD';
-      case 'BNB/USDT':
-        return 'Binance Coin / Tether USD';
-      case 'ADA/USDT':
-        return 'Cardano / Tether USD';
-      default:
-        return 'Cryptocurrency / Tether USD';
-    }
+  Widget _buildStreamingIndicator(bool isDark) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: widget.isStreaming
+            ? AppColors.getSuccess(isDark).withOpacity(0.1)
+            : AppColors.getWarning(isDark).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        border: Border.all(
+          color: widget.isStreaming
+              ? AppColors.getSuccess(isDark).withOpacity(0.3)
+              : AppColors.getWarning(isDark).withOpacity(0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: widget.isStreaming
+                  ? AppColors.getSuccess(isDark)
+                  : AppColors.getWarning(isDark),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            widget.isStreaming ? 'LIVE' : 'CONNECTING',
+            style: AppTextStyles.caption.copyWith(
+              color: widget.isStreaming
+                  ? AppColors.getSuccess(isDark)
+                  : AppColors.getWarning(isDark),
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(bool isDark) {
+    final isActive = widget.symbolInfo.status == 'TRADING';
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: isActive
+            ? AppColors.getInfo(isDark).withOpacity(0.1)
+            : AppColors.getSellRed(isDark).withOpacity(0.1),
+        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        border: Border.all(
+          color: isActive
+              ? AppColors.getInfo(isDark).withOpacity(0.3)
+              : AppColors.getSellRed(isDark).withOpacity(0.3),
+        ),
+      ),
+      child: Text(
+        widget.symbolInfo.status,
+        style: AppTextStyles.caption.copyWith(
+          color: isActive
+              ? AppColors.getInfo(isDark)
+              : AppColors.getSellRed(isDark),
+          fontWeight: FontWeight.bold,
+          fontSize: 10,
+        ),
+      ),
+    );
+  }
+
+  String _getPairDescription(String baseAsset, String quoteAsset) {
+    final baseNames = {
+      'BTC': 'Bitcoin',
+      'ETH': 'Ethereum',
+      'BNB': 'Binance Coin',
+      'ADA': 'Cardano',
+      'SOL': 'Solana',
+      'DOT': 'Polkadot',
+      'MATIC': 'Polygon',
+      'AVAX': 'Avalanche',
+      'LINK': 'Chainlink',
+      'UNI': 'Uniswap',
+    };
+
+    final quoteNames = {
+      'USDT': 'Tether USD',
+      'USDC': 'USD Coin',
+      'BUSD': 'Binance USD',
+      'BTC': 'Bitcoin',
+      'ETH': 'Ethereum',
+      'BNB': 'Binance Coin',
+    };
+
+    final baseName = baseNames[baseAsset.toUpperCase()] ?? baseAsset;
+    final quoteName = quoteNames[quoteAsset.toUpperCase()] ?? quoteAsset;
+
+    return '$baseName / $quoteName';
   }
 
   Widget _buildActionButtons(bool isDark) {
@@ -199,17 +288,25 @@ class _PairHeaderWidgetState extends State<PairHeaderWidget> {
           isDark: isDark,
           onPressed: () => _shareSymbol(),
         ),
+        const SizedBox(width: AppSpacing.sm),
+        ActionButton(
+          icon: LucideIcons.refreshCcw,
+          label: 'Refresh',
+          isDark: isDark,
+          onPressed: () => _refreshData(),
+        ),
       ],
     );
   }
 
   void _showAlertDialog() {
-    // TODO: Implement alert dialog
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Set Price Alert for ${widget.symbol}'),
-        content: const Text('Alert functionality will be implemented here'),
+        content: Text(
+          'Alert functionality will be implemented here.\n\nCurrent status: ${widget.symbolInfo.status}',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -225,11 +322,25 @@ class _PairHeaderWidgetState extends State<PairHeaderWidget> {
   }
 
   void _shareSymbol() {
-    // TODO: Implement share functionality
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Sharing ${widget.symbol}...'),
+        content: Text(
+          'Sharing ${widget.symbol} (${widget.symbolInfo.baseAsset}/${widget.symbolInfo.quoteAsset})...',
+        ),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _refreshData() {
+    // Trigger refresh in the BLoC
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Refreshing ${widget.symbol} data...'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: AppColors.getInfo(
+          Theme.of(context).brightness == Brightness.dark,
+        ),
       ),
     );
   }

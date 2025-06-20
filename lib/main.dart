@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '/core/injections/injections.dart' as di;
+import '/core/injections/dashboard_di.dart' as di;
+import '/core/injections/trading_pair_di.dart' as tp_di;
 import '/core/router/app_router.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
@@ -13,6 +14,11 @@ void main() async {
 
   await di.initializeDependenciesWithEnvironment(di.Environment.development);
   di.validateDependencies();
+
+  await tp_di.initializeTradingPairDependenciesWithEnvironment(
+    tp_di.TradingPairEnvironment.development,
+  );
+  tp_di.validateTradingPairDependencies();
 
   runApp(
     MultiBlocProvider(providers: getListBloc(), child: const BanexCoinApp()),

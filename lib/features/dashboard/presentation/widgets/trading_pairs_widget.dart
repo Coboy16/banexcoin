@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:responsive_framework/responsive_framework.dart'; // Importante para la detección
 
 import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
@@ -13,6 +14,14 @@ class TradingPairsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // =================================================================
+    // INICIO MODIFICACIÓN: Detectar si es escritorio o móvil
+    // =================================================================
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+    // =================================================================
+    // FIN MODIFICACIÓN
+    // =================================================================
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -27,8 +36,10 @@ class TradingPairsWidget extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(isDark),
-              _buildTableHeader(isDark),
-              _buildContent(isDark),
+              // MODIFICACIÓN: Pasar 'isDesktop' para renderizar la cabecera correcta
+              _buildTableHeader(isDark, isDesktop),
+              // MODIFICACIÓN: Pasar 'isDesktop' para renderizar el contenido correcto
+              _buildContent(isDark, isDesktop),
             ],
           ),
         );
@@ -95,11 +106,17 @@ class TradingPairsWidget extends StatelessWidget {
         ),
       );
     }
-
     return const SizedBox.shrink();
   }
 
-  Widget _buildTableHeader(bool isDark) {
+  // =================================================================
+  // INICIO MODIFICACIÓN: Cabecera de tabla responsiva
+  // =================================================================
+  Widget _buildTableHeader(bool isDark, bool isDesktop) {
+    final headerStyle = AppTextStyles.labelMedium.copyWith(
+      color: AppColors.getTextSecondary(isDark),
+    );
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -112,53 +129,77 @@ class TradingPairsWidget extends StatelessWidget {
         ),
       ),
       child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Pair',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.getTextSecondary(isDark),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Price',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.getTextSecondary(isDark),
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              '24h Change',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.getTextSecondary(isDark),
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          Expanded(
-            child: Text(
-              'Volume',
-              style: AppTextStyles.labelMedium.copyWith(
-                color: AppColors.getTextSecondary(isDark),
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
+        children: isDesktop
+            ? [
+                // Cabecera para Desktop (Original)
+                Expanded(flex: 2, child: Text('Pair', style: headerStyle)),
+                Expanded(
+                  child: Text(
+                    'Price',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '24h Change',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    'Volume',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ]
+            : [
+                // Cabecera para Móvil (Modificada)
+                Expanded(flex: 3, child: Text('Pair', style: headerStyle)),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Price',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    '24h Change',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Text(
+                    'Volume',
+                    style: headerStyle,
+                    textAlign: TextAlign.right,
+                  ),
+                ),
+              ],
       ),
     );
   }
+  // =================================================================
+  // FIN MODIFICACIÓN
+  // =================================================================
 
-  Widget _buildContent(bool isDark) {
+  Widget _buildContent(bool isDark, bool isDesktop) {
     if (marketState is MarketDataLoading) {
       return _buildLoadingState(isDark);
     } else if (marketState is MarketDataLoaded) {
-      return _buildLoadedState(marketState as MarketDataLoaded, isDark);
+      // MODIFICACIÓN: Pasar 'isDesktop' para elegir el widget de fila correcto
+      return _buildLoadedState(
+        marketState as MarketDataLoaded,
+        isDark,
+        isDesktop,
+      );
     } else if (marketState is MarketDataError) {
       return _buildErrorState(marketState as MarketDataError, isDark);
     } else {
@@ -166,7 +207,50 @@ class TradingPairsWidget extends StatelessWidget {
     }
   }
 
+  Widget _buildLoadedState(
+    MarketDataLoaded state,
+    bool isDark,
+    bool isDesktop,
+  ) {
+    final tickers = state.tickers.values.toList()
+      ..sort((a, b) => a.symbol.compareTo(b.symbol));
+
+    if (tickers.isEmpty) {
+      return _buildEmptyState(isDark);
+    }
+
+    return Column(
+      children: tickers.map((ticker) {
+        final connectionStatus = state.getConnectionStatus(ticker.symbol);
+        // =================================================================
+        // INICIO MODIFICACIÓN: Lógica para elegir el widget de fila
+        // =================================================================
+        if (isDesktop) {
+          return TradingPairDesktopRow(
+            // Usar el widget de fila para Desktop
+            ticker: ticker,
+            connectionStatus: connectionStatus,
+            isDark: isDark,
+            onTap: () => _navigateToPairDetail(ticker),
+          );
+        } else {
+          return TradingPairMobileRow(
+            // Usar el nuevo widget de fila para Móvil
+            ticker: ticker,
+            isDark: isDark,
+            onTap: () => _navigateToPairDetail(ticker),
+          );
+        }
+        // =================================================================
+        // FIN MODIFICACIÓN
+        // =================================================================
+      }).toList(),
+    );
+  }
+
+  // El resto de los métodos _build... (loading, error, etc.) no necesitan cambios.
   Widget _buildLoadingState(bool isDark) {
+    /* ...código sin cambios... */
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -192,6 +276,7 @@ class TradingPairsWidget extends StatelessWidget {
   }
 
   Widget _buildShimmer(double width, double height, bool isDark) {
+    /* ...código sin cambios... */
     return Container(
       width: width,
       height: height,
@@ -202,28 +287,8 @@ class TradingPairsWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildLoadedState(MarketDataLoaded state, bool isDark) {
-    final tickers = state.tickers.values.toList()
-      ..sort((a, b) => a.symbol.compareTo(b.symbol));
-
-    if (tickers.isEmpty) {
-      return _buildEmptyState(isDark);
-    }
-
-    return Column(
-      children: tickers.map((ticker) {
-        final connectionStatus = state.getConnectionStatus(ticker.symbol);
-        return TradingPairRealRow(
-          ticker: ticker,
-          connectionStatus: connectionStatus,
-          isDark: isDark,
-          onTap: () => _navigateToPairDetail(ticker),
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildErrorState(MarketDataError error, bool isDark) {
+    /* ...código sin cambios... */
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -262,6 +327,7 @@ class TradingPairsWidget extends StatelessWidget {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    /* ...código sin cambios... */
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -284,6 +350,7 @@ class TradingPairsWidget extends StatelessWidget {
   }
 
   Widget _buildInitialState(bool isDark) {
+    /* ...código sin cambios... */
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -306,23 +373,25 @@ class TradingPairsWidget extends StatelessWidget {
   }
 
   void _navigateToPairDetail(TickerEntity ticker) {
-    // TODO: Navigate to pair detail page
     debugPrint('Navigate to ${ticker.symbol} detail');
   }
 
   void _retryConnection() {
-    // TODO: Retry connection logic
     debugPrint('Retry connection');
   }
 }
 
-class TradingPairRealRow extends StatefulWidget {
+// =================================================================
+// WIDGET DE FILA PARA DESKTOP (EL CÓDIGO ORIGINAL SIN CAMBIOS)
+// Renombrado de 'TradingPairRealRow' a 'TradingPairDesktopRow' para mayor claridad.
+// =================================================================
+class TradingPairDesktopRow extends StatefulWidget {
   final TickerEntity ticker;
   final ConnectionStatus connectionStatus;
   final bool isDark;
   final VoidCallback onTap;
 
-  const TradingPairRealRow({
+  const TradingPairDesktopRow({
     super.key,
     required this.ticker,
     required this.connectionStatus,
@@ -331,10 +400,10 @@ class TradingPairRealRow extends StatefulWidget {
   });
 
   @override
-  State<TradingPairRealRow> createState() => _TradingPairRealRowState();
+  State<TradingPairDesktopRow> createState() => _TradingPairDesktopRowState();
 }
 
-class _TradingPairRealRowState extends State<TradingPairRealRow>
+class _TradingPairDesktopRowState extends State<TradingPairDesktopRow>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _flashController;
@@ -351,10 +420,8 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
   }
 
   @override
-  void didUpdateWidget(TradingPairRealRow oldWidget) {
+  void didUpdateWidget(TradingPairDesktopRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // Detectar cambio de precio para flash
     if (oldWidget.ticker.lastPrice != widget.ticker.lastPrice) {
       _updateFlashAnimation();
       _flashController.forward().then((_) {
@@ -367,7 +434,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
     Color flashColor = widget.ticker.isPriceChangePositive
         ? AppColors.getBuyGreen(widget.isDark)
         : AppColors.getSellRed(widget.isDark);
-
     _flashAnimation =
         ColorTween(
           begin: Colors.transparent,
@@ -547,6 +613,7 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
     );
   }
 
+  // Métodos de ayuda (sin cambios)
   IconData _getSymbolIcon(String symbol) {
     if (symbol.startsWith('BTC')) return LucideIcons.bitcoin;
     if (symbol.startsWith('ETH')) return LucideIcons.hexagon;
@@ -558,7 +625,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
   }
 
   String _formatSymbol(String symbol) {
-    // Convertir BTCUSDT a BTC/USDT
     if (symbol.endsWith('USDT')) {
       final base = symbol.substring(0, symbol.length - 4);
       return '$base/USDT';
@@ -578,8 +644,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
   String _formatPrice(String price) {
     try {
       final value = double.parse(price);
-
-      // Formatear según el rango del precio
       if (value >= 1000) {
         return value.toStringAsFixed(2);
       } else if (value >= 1) {
@@ -622,6 +686,152 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
         return AppColors.getSellRed(widget.isDark);
       case ConnectionStatus.disconnected:
         return AppColors.getTextMuted(widget.isDark);
+    }
+  }
+}
+
+// =================================================================
+// NUEVO WIDGET DE FILA EXCLUSIVO PARA MÓVIL
+// Contiene el diseño simplificado y espaciado.
+// =================================================================
+class TradingPairMobileRow extends StatelessWidget {
+  final TickerEntity ticker;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const TradingPairMobileRow({
+    super.key,
+    required this.ticker,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Text(
+                _formatSymbol(ticker.symbol),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                _formatPrice(ticker.lastPrice),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Container(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
+                  ),
+                  decoration: BoxDecoration(
+                    color:
+                        (ticker.isPriceChangePositive
+                                ? AppColors.getBuyGreen(isDark)
+                                : AppColors.getSellRed(isDark))
+                            .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                  ),
+                  child: Text(
+                    ticker.formattedPriceChangePercent,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: ticker.isPriceChangePositive
+                          ? AppColors.getBuyGreen(isDark)
+                          : AppColors.getSellRed(isDark),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                _formatVolume(ticker.quoteVolume),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Métodos de ayuda (copiados para que el widget sea autocontenido)
+  String _formatSymbol(String symbol) {
+    if (symbol.endsWith('USDT')) {
+      final base = symbol.substring(0, symbol.length - 4);
+      return '$base/USDT';
+    } else if (symbol.endsWith('BUSD')) {
+      final base = symbol.substring(0, symbol.length - 4);
+      return '$base/BUSD';
+    } else if (symbol.endsWith('BTC')) {
+      final base = symbol.substring(0, symbol.length - 3);
+      return '$base/BTC';
+    } else if (symbol.endsWith('ETH')) {
+      final base = symbol.substring(0, symbol.length - 3);
+      return '$base/ETH';
+    }
+    return symbol;
+  }
+
+  String _formatPrice(String price) {
+    try {
+      final value = double.parse(price);
+      if (value >= 1000) {
+        return value.toStringAsFixed(2);
+      } else if (value >= 1) {
+        return value.toStringAsFixed(4);
+      } else if (value >= 0.01) {
+        return value.toStringAsFixed(6);
+      } else {
+        return value.toStringAsFixed(8);
+      }
+    } catch (e) {
+      return price;
+    }
+  }
+
+  String _formatVolume(String volume) {
+    try {
+      final value = double.parse(volume);
+      if (value >= 1000000000) {
+        return '${(value / 1000000000).toStringAsFixed(1)}B';
+      } else if (value >= 1000000) {
+        return '${(value / 1000000).toStringAsFixed(1)}M';
+      } else if (value >= 1000) {
+        return '${(value / 1000).toStringAsFixed(1)}K';
+      } else {
+        return value.toStringAsFixed(2);
+      }
+    } catch (e) {
+      return volume;
     }
   }
 }

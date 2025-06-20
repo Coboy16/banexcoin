@@ -12,5 +12,8 @@ List<SingleChildWidget> getListBloc() {
     ),
     BlocProvider(create: (context) => NavigationBloc()),
     BlocProvider<MarketDataBloc>(create: (context) => di.sl<MarketDataBloc>()),
+    BlocProvider<TradingPairBloc>(
+      create: (context) => di.sl<TradingPairBloc>(),
+    ),
   ];
 }
