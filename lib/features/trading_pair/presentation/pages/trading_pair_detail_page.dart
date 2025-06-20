@@ -3,6 +3,7 @@ import 'package:banexcoin/features/trading_pair/presentation/widgets/widgets.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
@@ -25,8 +26,6 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
-    // Crear el BLoC y cargar datos iniciales
     _tradingPairBloc = tp_di.tpSl<TradingPairBloc>();
     _tradingPairBloc.add(LoadTradingPairData(symbol: widget.symbol));
   }
@@ -86,7 +85,6 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header placeholder
           Container(
             height: 60,
             decoration: BoxDecoration(
@@ -120,11 +118,9 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
             ),
           ),
           const SizedBox(height: AppSpacing.xl),
-
-          // Content placeholders
-          _buildShimmerPlaceholder(isDark, height: 120), // Price display
+          _buildShimmerPlaceholder(isDark, height: 120),
           const SizedBox(height: AppSpacing.xl),
-          _buildShimmerPlaceholder(isDark, height: 400), // Chart
+          _buildShimmerPlaceholder(isDark, height: 400),
           const SizedBox(height: AppSpacing.lg),
           Row(
             children: [
@@ -207,11 +203,9 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
                 ),
                 const SizedBox(height: AppSpacing.xl),
                 ElevatedButton(
-                  onPressed: () {
-                    _tradingPairBloc.add(
-                      LoadTradingPairData(symbol: widget.symbol),
-                    );
-                  },
+                  onPressed: () => _tradingPairBloc.add(
+                    LoadTradingPairData(symbol: widget.symbol),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.getPrimaryBlue(isDark),
                     padding: const EdgeInsets.symmetric(
@@ -287,11 +281,8 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          PairHeaderWidget(
-            symbol: state.tradingPair.symbol,
-            symbolInfo: state.symbolInfo,
-            isStreaming: state.isStreaming,
-          ),
+          // MODIFICACIÓN: Usar el nuevo header responsivo
+          _buildResponsiveHeader(state, isDesktop, isDark),
           const SizedBox(height: AppSpacing.xl),
           PriceDisplayWidget(
             tradingPair: state.tradingPair,
@@ -302,6 +293,93 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
         ],
       ),
     );
+  }
+
+  Widget _buildResponsiveHeader(
+    TradingPairLoaded state,
+    bool isDesktop,
+    bool isDark,
+  ) {
+    if (isDesktop) {
+      // VISTA WEB/DESKTOP: Recrear el layout original
+      return PairHeaderWidget(
+        symbol: state.tradingPair.symbol,
+        symbolInfo: state.symbolInfo,
+        isStreaming: state.isStreaming,
+      );
+    } else {
+      // VISTA MÓVIL: Nuevo layout en columna
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.getSurfaceColor(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                ),
+                child: Center(
+                  child: Icon(
+                    LucideIcons.bitcoin,
+                    color: AppColors.getPrimaryBlue(isDark),
+                  ),
+                ), // Icono genérico
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    state.symbolInfo.baseAsset,
+                    style: AppTextStyles.h3.copyWith(
+                      color: AppColors.getTextPrimary(isDark),
+                    ),
+                  ),
+                  Text(
+                    state.symbolInfo.quoteAsset,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.getTextSecondary(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: Icon(LucideIcons.star, size: 16),
+                  label: Text('Watchlist'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getSurfaceColor(isDark),
+                    foregroundColor: AppColors.getTextPrimary(isDark),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: Icon(LucideIcons.bell, size: 16),
+                  label: Text('Alert'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.getSurfaceColor(isDark),
+                    foregroundColor: AppColors.getTextPrimary(isDark),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
   }
 
   Widget _buildMainContent(
@@ -328,7 +406,7 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
             rowFlex: 1,
             child: Column(
               children: [
-                _buildTradingTabs(state, isDark),
+                _buildTradingTabs(state, isDesktop, isDark),
                 const SizedBox(height: AppSpacing.lg),
                 RecentTradesWidget(symbol: state.tradingPair.symbol),
               ],
@@ -337,12 +415,11 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
         ],
       );
     } else {
-      // Mobile layout
       return Column(
         children: [
           TradingChartTwoWidget(symbol: state.tradingPair.symbol),
           const SizedBox(height: AppSpacing.lg),
-          _buildTradingTabs(state, isDark),
+          _buildTradingTabs(state, isDesktop, isDark),
           const SizedBox(height: AppSpacing.lg),
           PairStatisticsWidget(symbol: state.tradingPair.symbol),
           const SizedBox(height: AppSpacing.lg),
@@ -352,7 +429,11 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
     }
   }
 
-  Widget _buildTradingTabs(TradingPairLoaded state, bool isDark) {
+  Widget _buildTradingTabs(
+    TradingPairLoaded state,
+    bool isDesktop,
+    bool isDark,
+  ) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.getCardBackground(isDark),
@@ -382,12 +463,12 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
             ),
           ),
           SizedBox(
-            height: 500,
+            height: 680,
             child: TabBarView(
               controller: _tabController,
               children: [
                 QuickTradeWidget(symbol: state.tradingPair.symbol),
-                _buildMarketTab(state, isDark),
+                _buildMarketTab(state, isDesktop, isDark),
               ],
             ),
           ),
@@ -396,7 +477,7 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
     );
   }
 
-  Widget _buildMarketTab(TradingPairLoaded state, bool isDark) {
+  Widget _buildMarketTab(TradingPairLoaded state, bool isDesktop, bool isDark) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -409,13 +490,17 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          _buildMarketInfo(state, isDark),
+          _buildMarketInfo(state, isDesktop, isDark),
         ],
       ),
     );
   }
 
-  Widget _buildMarketInfo(TradingPairLoaded state, bool isDark) {
+  Widget _buildMarketInfo(
+    TradingPairLoaded state,
+    bool isDesktop,
+    bool isDark,
+  ) {
     final marketData = [
       {'label': 'Symbol', 'value': state.symbolInfo.symbol},
       {'label': 'Base Asset', 'value': state.symbolInfo.baseAsset},
@@ -429,24 +514,15 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
         'label': 'Quote Precision',
         'value': '${state.symbolInfo.quoteAssetPrecision}',
       },
-      {
-        'label': '24h Volume',
-        'value':
-            '${state.priceStats.volume.toStringAsFixed(2)} ${state.symbolInfo.baseAsset}',
-      },
-      {
-        'label': '24h Quote Volume',
-        'value':
-            '${state.priceStats.quoteVolume.toStringAsFixed(2)} ${state.symbolInfo.quoteAsset}',
-      },
     ];
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.5,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        // MODIFICACIÓN: Cambiar el número de columnas y el aspect ratio para móvil
+        crossAxisCount: isDesktop ? 2 : 1,
+        childAspectRatio: isDesktop ? 2.5 : 4.4,
         mainAxisSpacing: AppSpacing.md,
         crossAxisSpacing: AppSpacing.md,
       ),

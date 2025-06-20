@@ -1,221 +1,56 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'dart:async';
-import 'dart:math';
+import 'package:responsive_framework/responsive_framework.dart';
 
+import '/features/features.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
-class PairStatisticsWidget extends StatefulWidget {
+class PairStatisticsWidget extends StatelessWidget {
   const PairStatisticsWidget({super.key, required this.symbol});
 
   final String symbol;
 
   @override
-  State<PairStatisticsWidget> createState() => _PairStatisticsWidgetState();
-}
-
-class _PairStatisticsWidgetState extends State<PairStatisticsWidget> {
-  late Timer _updateTimer;
-  final Random _random = Random();
-
-  List<StatisticData> _statistics = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeStatistics();
-    _startUpdates();
-  }
-
-  @override
-  void dispose() {
-    _updateTimer.cancel();
-    super.dispose();
-  }
-
-  void _initializeStatistics() {
-    final basePrice = _getBasePriceForSymbol(widget.symbol);
-
-    _statistics = [
-      StatisticData(
-        title: '24h Open',
-        value: (basePrice * 0.98).toStringAsFixed(basePrice >= 1 ? 2 : 4),
-        change: null,
-        icon: LucideIcons.sunrise,
-        baseValue: basePrice * 0.98,
-      ),
-      StatisticData(
-        title: '24h High',
-        value: (basePrice * 1.045).toStringAsFixed(basePrice >= 1 ? 2 : 4),
-        change: '+4.5%',
-        isPositive: true,
-        icon: LucideIcons.trendingUp,
-        baseValue: basePrice * 1.045,
-      ),
-      StatisticData(
-        title: '24h Low',
-        value: (basePrice * 0.97).toStringAsFixed(basePrice >= 1 ? 2 : 4),
-        change: '-3.0%',
-        isPositive: false,
-        icon: LucideIcons.trendingDown,
-        baseValue: basePrice * 0.97,
-      ),
-      StatisticData(
-        title: 'Current',
-        value: basePrice.toStringAsFixed(basePrice >= 1 ? 2 : 4),
-        change: '+2.5%',
-        isPositive: true,
-        icon: LucideIcons.activity,
-        baseValue: basePrice,
-      ),
-      StatisticData(
-        title: 'Volume (BTC)',
-        value: '28,456.23',
-        change: '+15.2%',
-        isPositive: true,
-        icon: LucideIcons.chartBar,
-        baseValue: 28456.23,
-      ),
-      StatisticData(
-        title: 'Volume (USDT)',
-        value: '1.23B',
-        change: '+12.8%',
-        isPositive: true,
-        icon: LucideIcons.dollarSign,
-        baseValue: 1230000000,
-      ),
-      StatisticData(
-        title: 'Market Cap',
-        value: _getMarketCap(),
-        change: '+3.2%',
-        isPositive: true,
-        icon: LucideIcons.chartPie,
-        baseValue: 0,
-      ),
-      StatisticData(
-        title: 'Circulating Supply',
-        value: _getCirculatingSupply(),
-        change: null,
-        icon: LucideIcons.coins,
-        baseValue: 0,
-      ),
-    ];
-  }
-
-  double _getBasePriceForSymbol(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return 43250.0;
-      case 'ETH/USDT':
-        return 2650.0;
-      case 'BNB/USDT':
-        return 315.0;
-      case 'ADA/USDT':
-        return 0.485;
-      default:
-        return 1000.0;
-    }
-  }
-
-  String _getMarketCap() {
-    switch (widget.symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return '847.2B';
-      case 'ETH/USDT':
-        return '318.5B';
-      case 'BNB/USDT':
-        return '48.3B';
-      case 'ADA/USDT':
-        return '17.1B';
-      default:
-        return 'N/A';
-    }
-  }
-
-  String _getCirculatingSupply() {
-    switch (widget.symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return '19.8M BTC';
-      case 'ETH/USDT':
-        return '120.3M ETH';
-      case 'BNB/USDT':
-        return '153.9M BNB';
-      case 'ADA/USDT':
-        return '35.0B ADA';
-      default:
-        return 'N/A';
-    }
-  }
-
-  void _startUpdates() {
-    _updateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (mounted) {
-        _updateStatistics();
-      }
-    });
-  }
-
-  void _updateStatistics() {
-    setState(() {
-      for (var stat in _statistics) {
-        if (stat.baseValue > 0) {
-          // Simular cambios realistas
-          final changePercent = (_random.nextDouble() - 0.5) * 0.01; // ±0.5%
-          stat.baseValue = stat.baseValue * (1 + changePercent);
-
-          if (stat.title.contains('Volume') && stat.title.contains('USDT')) {
-            stat.value = '${(stat.baseValue / 1000000000).toStringAsFixed(2)}B';
-          } else if (stat.title.contains('Volume')) {
-            stat.value = '${stat.baseValue.toStringAsFixed(2)}';
-          } else {
-            final basePrice = _getBasePriceForSymbol(widget.symbol);
-            stat.value = stat.baseValue.toStringAsFixed(basePrice >= 1 ? 2 : 4);
-          }
-
-          // Actualizar cambio porcentual si existe
-          if (stat.change != null &&
-              !stat.title.contains('Open') &&
-              !stat.title.contains('Cap') &&
-              !stat.title.contains('Supply')) {
-            final newChange = (_random.nextDouble() - 0.5) * 10; // ±5%
-            stat.isPositive = newChange >= 0;
-            stat.change =
-                '${newChange >= 0 ? '+' : ''}${newChange.toStringAsFixed(1)}%';
-          }
-        }
-      }
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(color: AppColors.getBorderPrimary(isDark)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isDark),
-              const SizedBox(height: AppSpacing.lg),
-              _buildStatisticsGrid(isDark),
-            ],
-          ),
+        return BlocBuilder<TradingPairBloc, TradingPairState>(
+          builder: (context, state) {
+            if (state is TradingPairLoaded) {
+              return Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: AppColors.getCardBackground(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                  border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(isDark, state.isStreaming),
+                    const SizedBox(height: AppSpacing.lg),
+                    // MODIFICACIÓN: Pasar 'isDesktop' para renderizar la cuadrícula correcta
+                    _buildStatisticsGrid(isDark, state, isDesktop),
+                  ],
+                ),
+              );
+            }
+
+            // MODIFICACIÓN: Pasar 'isDesktop' al estado de carga
+            return _buildLoadingState(isDark, isDesktop);
+          },
         );
       },
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget _buildHeader(bool isDark, bool isStreaming) {
     return Row(
       children: [
         Icon(
@@ -237,26 +72,39 @@ class _PairStatisticsWidgetState extends State<PairStatisticsWidget> {
             vertical: AppSpacing.xs,
           ),
           decoration: BoxDecoration(
-            color: AppColors.getAccentYellow(isDark).withOpacity(0.1),
+            color: isStreaming
+                ? AppColors.getSuccess(isDark).withOpacity(0.1)
+                : AppColors.getWarning(isDark).withOpacity(0.1),
             borderRadius: BorderRadius.circular(AppBorderRadius.sm),
             border: Border.all(
-              color: AppColors.getAccentYellow(isDark).withOpacity(0.3),
+              color: isStreaming
+                  ? AppColors.getSuccess(isDark).withOpacity(0.3)
+                  : AppColors.getWarning(isDark).withOpacity(0.3),
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                LucideIcons.clock,
-                color: AppColors.getAccentYellow(isDark),
-                size: 12,
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isStreaming
+                      ? AppColors.getSuccess(isDark)
+                      : AppColors.getWarning(isDark),
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                'Updated',
+                isStreaming ? 'LIVE' : 'OFFLINE',
                 style: AppTextStyles.caption.copyWith(
-                  color: AppColors.getAccentYellow(isDark),
-                  fontWeight: FontWeight.w600,
+                  color: isStreaming
+                      ? AppColors.getSuccess(isDark)
+                      : AppColors.getWarning(isDark),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
                 ),
               ),
             ],
@@ -266,31 +114,212 @@ class _PairStatisticsWidgetState extends State<PairStatisticsWidget> {
     );
   }
 
-  Widget _buildStatisticsGrid(bool isDark) {
+  Widget _buildStatisticsGrid(
+    bool isDark,
+    TradingPairLoaded state,
+    bool isDesktop,
+  ) {
+    final statistics = _generateStatistics(state);
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 2.2,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isDesktop ? 2 : 1,
+        childAspectRatio: isDesktop ? 4.2 : 3.5,
         mainAxisSpacing: AppSpacing.md,
         crossAxisSpacing: AppSpacing.md,
       ),
-      itemCount: _statistics.length,
+      itemCount: statistics.length,
       itemBuilder: (context, index) {
-        return StatisticCard(statistic: _statistics[index], isDark: isDark);
+        return StatisticCard(statistic: statistics[index], isDark: isDark);
       },
+    );
+  }
+
+  List<StatisticData> _generateStatistics(TradingPairLoaded state) {
+    final tradingPair = state.tradingPair;
+    final priceStats = state.priceStats;
+
+    return [
+      StatisticData(
+        title: '24h Open',
+        value:
+            '\$${tradingPair.openPrice.toStringAsFixed(tradingPair.openPrice >= 1 ? 2 : 4)}',
+        change: null,
+        icon: LucideIcons.sunrise,
+      ),
+      StatisticData(
+        title: '24h High',
+        value:
+            '\$${tradingPair.highPrice24h.toStringAsFixed(tradingPair.highPrice24h >= 1 ? 2 : 4)}',
+        change: _calculatePercentChange(
+          tradingPair.currentPrice,
+          tradingPair.highPrice24h,
+        ),
+        isPositive: tradingPair.currentPrice >= tradingPair.openPrice,
+        icon: LucideIcons.trendingUp,
+      ),
+      StatisticData(
+        title: '24h Low',
+        value:
+            '\$${tradingPair.lowPrice24h.toStringAsFixed(tradingPair.lowPrice24h >= 1 ? 2 : 4)}',
+        change: _calculatePercentChange(
+          tradingPair.currentPrice,
+          tradingPair.lowPrice24h,
+        ),
+        isPositive: tradingPair.currentPrice >= tradingPair.lowPrice24h,
+        icon: LucideIcons.trendingDown,
+      ),
+      StatisticData(
+        title: 'Current Price',
+        value:
+            '\$${tradingPair.currentPrice.toStringAsFixed(tradingPair.currentPrice >= 1 ? 2 : 4)}',
+        change:
+            '${tradingPair.priceChangePercent24h >= 0 ? '+' : ''}${tradingPair.priceChangePercent24h.toStringAsFixed(2)}%',
+        isPositive: tradingPair.isPriceChangePositive,
+        icon: LucideIcons.activity,
+      ),
+      StatisticData(
+        title: 'Volume (${tradingPair.baseAsset})',
+        value: _formatVolume(tradingPair.volume24h),
+        change: '+${(tradingPair.volume24h / 1000000).toStringAsFixed(1)}M',
+        isPositive: true,
+        icon: LucideIcons.chartBar,
+      ),
+      StatisticData(
+        title: 'Volume (${tradingPair.quoteAsset})',
+        value: _formatVolume(tradingPair.quoteVolume24h),
+        change:
+            '+${(tradingPair.quoteVolume24h / 1000000).toStringAsFixed(1)}M',
+        isPositive: true,
+        icon: LucideIcons.dollarSign,
+      ),
+      StatisticData(
+        title: 'Price Range',
+        value:
+            '\$${(tradingPair.highPrice24h - tradingPair.lowPrice24h).toStringAsFixed(2)}',
+        change: _calculateRangePercent(
+          tradingPair.highPrice24h,
+          tradingPair.lowPrice24h,
+        ),
+        isPositive: true,
+        icon: LucideIcons.chartPie,
+      ),
+      StatisticData(
+        title: 'Market Trend',
+        value: priceStats.trend.displayName,
+        change: null,
+        icon: _getTrendIcon(priceStats.trend),
+        isPositive: priceStats.trend == PriceTrend.bullish,
+      ),
+    ];
+  }
+
+  String _calculatePercentChange(double current, double reference) {
+    if (reference == 0) return '0.00%';
+    final change = ((current - reference) / reference) * 100;
+    return '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%';
+  }
+
+  String _calculateRangePercent(double high, double low) {
+    if (low == 0) return '0.00%';
+    final rangePercent = ((high - low) / low) * 100;
+    return '${rangePercent.toStringAsFixed(2)}%';
+  }
+
+  String _formatVolume(double volume) {
+    if (volume >= 1000000000)
+      return '${(volume / 1000000000).toStringAsFixed(2)}B';
+    if (volume >= 1000000) return '${(volume / 1000000).toStringAsFixed(2)}M';
+    if (volume >= 1000) return '${(volume / 1000).toStringAsFixed(2)}K';
+    return volume.toStringAsFixed(2);
+  }
+
+  IconData _getTrendIcon(PriceTrend trend) {
+    switch (trend) {
+      case PriceTrend.bullish:
+        return LucideIcons.trendingUp;
+      case PriceTrend.bearish:
+        return LucideIcons.trendingDown;
+      case PriceTrend.neutral:
+        return LucideIcons.minus;
+    }
+  }
+
+  // =================================================================
+  // INICIO MODIFICACIÓN: Estado de carga responsivo
+  // =================================================================
+  Widget _buildLoadingState(bool isDark, bool isDesktop) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.getCardBackground(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                LucideIcons.chartLine,
+                color: AppColors.getPrimaryBlue(isDark),
+                size: 20,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '24h Statistics',
+                style: AppTextStyles.h3.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              // MODIFICACIÓN: Cambiar el número de columnas y el aspect ratio para móvil
+              crossAxisCount: isDesktop ? 2 : 1,
+              childAspectRatio: isDesktop ? 2.2 : 4.0,
+              mainAxisSpacing: AppSpacing.md,
+              crossAxisSpacing: AppSpacing.md,
+            ),
+            itemCount: 8,
+            itemBuilder: (context, index) {
+              return Container(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.getSurfaceColor(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  border: Border.all(
+                    color: AppColors.getBorderSecondary(isDark),
+                  ),
+                ),
+                child: const Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
 
 class StatisticData {
   final String title;
-  String value;
-  String? change;
-  bool? isPositive;
+  final String value;
+  final String? change;
+  final bool? isPositive;
   final IconData icon;
-  double baseValue;
 
   StatisticData({
     required this.title,
@@ -298,7 +327,6 @@ class StatisticData {
     this.change,
     this.isPositive,
     required this.icon,
-    required this.baseValue,
   });
 }
 
@@ -330,11 +358,9 @@ class _StatisticCardState extends State<StatisticCard>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-
     _colorAnimation = ColorTween(
       begin: Colors.transparent,
       end: AppColors.getPrimaryBlue(widget.isDark).withOpacity(0.05),
@@ -391,13 +417,25 @@ class _StatisticCardState extends State<StatisticCard>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _buildHeader(),
-                  const SizedBox(height: AppSpacing.sm),
-                  _buildValue(),
-                  if (widget.statistic.change != null) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    _buildChange(),
-                  ],
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(),
+                            const SizedBox(height: AppSpacing.sm),
+                            _buildValue(),
+                          ],
+                        ),
+                      ),
+                      if (widget.statistic.change != null) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        _buildChange(),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -435,9 +473,7 @@ class _StatisticCardState extends State<StatisticCard>
 
   Widget _buildValue() {
     return Text(
-      widget.statistic.value.startsWith('\$')
-          ? widget.statistic.value
-          : '\$${widget.statistic.value}',
+      widget.statistic.value,
       style: AppTextStyles.bodyLarge.copyWith(
         color: AppColors.getTextPrimary(widget.isDark),
         fontWeight: FontWeight.w600,
@@ -447,7 +483,6 @@ class _StatisticCardState extends State<StatisticCard>
 
   Widget _buildChange() {
     final isPositive = widget.statistic.isPositive ?? false;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
@@ -492,15 +527,18 @@ class _StatisticCardState extends State<StatisticCard>
         return AppColors.getBuyGreen(widget.isDark);
       case '24h Low':
         return AppColors.getSellRed(widget.isDark);
-      case 'Current':
+      case 'Current Price':
         return AppColors.getPrimaryBlue(widget.isDark);
-      case 'Volume (BTC)':
-      case 'Volume (USDT)':
-        return AppColors.getAccentYellow(widget.isDark);
-      case 'Market Cap':
-        return AppColors.getInfo(widget.isDark);
-      default:
+      case 'Market Trend':
+        if (widget.statistic.isPositive == true) {
+          return AppColors.getBuyGreen(widget.isDark);
+        }
+        if (widget.statistic.isPositive == false) {
+          return AppColors.getSellRed(widget.isDark);
+        }
         return AppColors.getTextSecondary(widget.isDark);
+      default:
+        return AppColors.getAccentYellow(widget.isDark);
     }
   }
 }

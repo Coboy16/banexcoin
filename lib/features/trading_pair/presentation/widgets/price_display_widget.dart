@@ -102,55 +102,77 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
         final isDark = themeState.isDarkMode;
         final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
 
-        // Actualizar el color de animación según el tema
-        _colorAnimation = ColorTween(
-          begin: Colors.transparent,
-          end:
-              (_isPriceIncreasing
-                      ? AppColors.getBuyGreen(isDark)
-                      : AppColors.getSellRed(isDark))
-                  .withOpacity(0.1),
-        ).animate(_priceAnimationController);
+        return BlocBuilder<TradingPairBloc, TradingPairState>(
+          builder: (context, state) {
+            // Always use the latest data from the BLoC if available
+            final currentTradingPair = state is TradingPairLoaded
+                ? state.tradingPair
+                : widget.tradingPair;
+            final currentPriceStats = state is TradingPairLoaded
+                ? state.priceStats
+                : widget.priceStats;
 
-        return AnimatedBuilder(
-          animation: _colorAnimation,
-          builder: (context, child) {
-            return Container(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              decoration: BoxDecoration(
-                color: AppColors.getCardBackground(isDark),
-                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-                border: Border.all(
-                  color: _isAnimating
-                      ? (_isPriceIncreasing
-                                ? AppColors.getBuyGreen(isDark)
-                                : AppColors.getSellRed(isDark))
-                            .withOpacity(0.5)
-                      : AppColors.getBorderPrimary(isDark),
-                  width: _isAnimating ? 2 : 1,
-                ),
-                boxShadow: _isAnimating
-                    ? [
-                        BoxShadow(
-                          color:
-                              (_isPriceIncreasing
-                                      ? AppColors.getBuyGreen(isDark)
-                                      : AppColors.getSellRed(isDark))
-                                  .withOpacity(0.2),
-                          blurRadius: 20,
-                          spreadRadius: 2,
+            // Update color animation based on current theme
+            _colorAnimation = ColorTween(
+              begin: Colors.transparent,
+              end:
+                  (_isPriceIncreasing
+                          ? AppColors.getBuyGreen(isDark)
+                          : AppColors.getSellRed(isDark))
+                      .withOpacity(0.1),
+            ).animate(_priceAnimationController);
+
+            return AnimatedBuilder(
+              animation: _colorAnimation,
+              builder: (context, child) {
+                return Container(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  decoration: BoxDecoration(
+                    color: AppColors.getCardBackground(isDark),
+                    borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                    border: Border.all(
+                      color: _isAnimating
+                          ? (_isPriceIncreasing
+                                    ? AppColors.getBuyGreen(isDark)
+                                    : AppColors.getSellRed(isDark))
+                                .withOpacity(0.5)
+                          : AppColors.getBorderPrimary(isDark),
+                      width: _isAnimating ? 2 : 1,
+                    ),
+                    boxShadow: _isAnimating
+                        ? [
+                            BoxShadow(
+                              color:
+                                  (_isPriceIncreasing
+                                          ? AppColors.getBuyGreen(isDark)
+                                          : AppColors.getSellRed(isDark))
+                                      .withOpacity(0.2),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Column(
+                    children: [
+                      if (isDesktop)
+                        _buildDesktopLayout(
+                          isDark,
+                          currentTradingPair,
+                          currentPriceStats,
+                          state,
+                        )
+                      else
+                        _buildMobileLayout(
+                          isDark,
+                          currentTradingPair,
+                          currentPriceStats,
+                          state,
                         ),
-                      ]
-                    : null,
-              ),
-              child: Column(
-                children: [
-                  if (isDesktop)
-                    _buildDesktopLayout(isDark)
-                  else
-                    _buildMobileLayout(isDark),
-                ],
-              ),
+                    ],
+                  ),
+                );
+              },
             );
           },
         );
@@ -158,28 +180,48 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     );
   }
 
-  Widget _buildDesktopLayout(bool isDark) {
+  Widget _buildDesktopLayout(
+    bool isDark,
+    TradingPairEntity tradingPair,
+    PriceStatsEntity priceStats,
+    TradingPairState state,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(flex: 2, child: _buildMainPrice(isDark)),
+        Expanded(
+          flex: 2,
+          child: _buildMainPrice(isDark, tradingPair, priceStats, state),
+        ),
         const SizedBox(width: AppSpacing.xl),
-        Expanded(flex: 3, child: _buildPriceStats(isDark, true)),
+        Expanded(flex: 3, child: _buildPriceStats(isDark, priceStats, true)),
       ],
     );
   }
 
-  Widget _buildMobileLayout(bool isDark) {
+  Widget _buildMobileLayout(
+    bool isDark,
+    TradingPairEntity tradingPair,
+    PriceStatsEntity priceStats,
+    TradingPairState state,
+  ) {
     return Column(
       children: [
-        _buildMainPrice(isDark),
+        _buildMainPrice(isDark, tradingPair, priceStats, state),
         const SizedBox(height: AppSpacing.lg),
-        _buildPriceStats(isDark, false),
+        _buildPriceStats(isDark, priceStats, false),
       ],
     );
   }
 
-  Widget _buildMainPrice(bool isDark) {
+  Widget _buildMainPrice(
+    bool isDark,
+    TradingPairEntity tradingPair,
+    PriceStatsEntity priceStats,
+    TradingPairState state,
+  ) {
+    final isStreaming = state is TradingPairLoaded ? state.isStreaming : false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -192,9 +234,9 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
-            _buildTrendIcon(isDark),
+            _buildTrendIcon(isDark, priceStats),
             const Spacer(),
-            _buildLastUpdateIndicator(isDark),
+            _buildLastUpdateIndicator(isDark, priceStats, isStreaming),
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -210,7 +252,7 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
                   borderRadius: BorderRadius.circular(AppBorderRadius.md),
                 ),
                 child: AutoSizeText(
-                  widget.tradingPair.formattedCurrentPrice,
+                  '\$${tradingPair.currentPrice.toStringAsFixed(tradingPair.currentPrice >= 1 ? 2 : 4)}',
                   style: AppTextStyles.h1.copyWith(
                     fontSize: 42,
                     color: _isAnimating
@@ -227,13 +269,13 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
           },
         ),
         const SizedBox(height: AppSpacing.md),
-        _buildPriceChange(isDark),
+        _buildPriceChange(isDark, tradingPair),
       ],
     );
   }
 
-  Widget _buildTrendIcon(bool isDark) {
-    final trend = widget.priceStats.trend;
+  Widget _buildTrendIcon(bool isDark, PriceStatsEntity priceStats) {
+    final trend = priceStats.trend;
     IconData icon;
     Color color;
 
@@ -262,26 +304,50 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     );
   }
 
-  Widget _buildLastUpdateIndicator(bool isDark) {
+  Widget _buildLastUpdateIndicator(
+    bool isDark,
+    PriceStatsEntity priceStats,
+    bool isStreaming,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: AppColors.getInfo(isDark).withOpacity(0.1),
+        color: isStreaming
+            ? AppColors.getSuccess(isDark).withOpacity(0.1)
+            : AppColors.getWarning(isDark).withOpacity(0.1),
         borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        border: Border.all(
+          color: isStreaming
+              ? AppColors.getSuccess(isDark).withOpacity(0.3)
+              : AppColors.getWarning(isDark).withOpacity(0.3),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(LucideIcons.clock, size: 12, color: AppColors.getInfo(isDark)),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: isStreaming
+                  ? AppColors.getSuccess(isDark)
+                  : AppColors.getWarning(isDark),
+              shape: BoxShape.circle,
+            ),
+          ),
           const SizedBox(width: AppSpacing.xs),
           Text(
-            _formatLastUpdate(widget.priceStats.lastUpdateTime),
+            isStreaming ? 'LIVE' : 'OFFLINE',
             style: AppTextStyles.caption.copyWith(
-              color: AppColors.getInfo(isDark),
-              fontWeight: FontWeight.w500,
+              color: isStreaming
+                  ? AppColors.getSuccess(isDark)
+                  : AppColors.getWarning(isDark),
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
             ),
           ),
         ],
@@ -289,21 +355,8 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     );
   }
 
-  String _formatLastUpdate(DateTime lastUpdate) {
-    final now = DateTime.now();
-    final difference = now.difference(lastUpdate);
-
-    if (difference.inSeconds < 60) {
-      return '${difference.inSeconds}s ago';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return '${lastUpdate.hour.toString().padLeft(2, '0')}:${lastUpdate.minute.toString().padLeft(2, '0')}';
-    }
-  }
-
-  Widget _buildPriceChange(bool isDark) {
-    final isPositive = widget.tradingPair.isPriceChangePositive;
+  Widget _buildPriceChange(bool isDark, TradingPairEntity tradingPair) {
+    final isPositive = tradingPair.isPriceChangePositive;
 
     return Row(
       children: [
@@ -339,7 +392,7 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
               ),
               const SizedBox(width: AppSpacing.xs),
               Text(
-                widget.tradingPair.priceChange24h.toString(),
+                '${isPositive ? '+' : ''}\$${tradingPair.priceChange24h.toStringAsFixed(2)}',
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: isPositive
                       ? AppColors.getBuyGreen(isDark)
@@ -365,7 +418,7 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
             borderRadius: BorderRadius.circular(AppBorderRadius.sm),
           ),
           child: Text(
-            '${widget.tradingPair.priceChangePercent24h.toStringAsFixed(2)}%',
+            '${isPositive ? '+' : ''}${tradingPair.priceChangePercent24h.toStringAsFixed(2)}%',
             style: AppTextStyles.bodyMedium.copyWith(
               color: isPositive
                   ? AppColors.getBuyGreen(isDark)
@@ -378,32 +431,36 @@ class _PriceDisplayWidgetState extends State<PriceDisplayWidget>
     );
   }
 
-  Widget _buildPriceStats(bool isDark, bool isDesktop) {
+  Widget _buildPriceStats(
+    bool isDark,
+    PriceStatsEntity priceStats,
+    bool isDesktop,
+  ) {
     final stats = [
       PriceStatData(
         label: '24h Open',
         value:
-            '\$${widget.priceStats.openPrice.toStringAsFixed(widget.priceStats.openPrice >= 1 ? 2 : 4)}',
+            '\$${priceStats.openPrice.toStringAsFixed(priceStats.openPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.clock,
         color: AppColors.getInfo(isDark),
       ),
       PriceStatData(
         label: '24h High',
         value:
-            '\$${widget.priceStats.highPrice.toStringAsFixed(widget.priceStats.highPrice >= 1 ? 2 : 4)}',
+            '\$${priceStats.highPrice.toStringAsFixed(priceStats.highPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.trendingUp,
         color: AppColors.getBuyGreen(isDark),
       ),
       PriceStatData(
         label: '24h Low',
         value:
-            '\$${widget.priceStats.lowPrice.toStringAsFixed(widget.priceStats.lowPrice >= 1 ? 2 : 4)}',
+            '\$${priceStats.lowPrice.toStringAsFixed(priceStats.lowPrice >= 1 ? 2 : 4)}',
         icon: LucideIcons.trendingDown,
         color: AppColors.getSellRed(isDark),
       ),
       PriceStatData(
         label: '24h Volume',
-        value: _formatVolume(widget.priceStats.quoteVolume),
+        value: _formatVolume(priceStats.quoteVolume),
         icon: LucideIcons.chartBar,
         color: AppColors.getPrimaryBlue(isDark),
       ),
