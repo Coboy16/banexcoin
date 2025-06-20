@@ -230,23 +230,24 @@ class _DashboardPageState extends State<DashboardPage> {
           : ResponsiveRowColumnType.COLUMN,
       rowSpacing: AppSpacing.lg,
       columnSpacing: AppSpacing.lg,
+      rowCrossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ResponsiveRowColumnItem(
           rowFlex: 2,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Trading Pairs Widget con datos reales
               TradingPairsWidget(marketState: marketState),
               const SizedBox(height: AppSpacing.lg),
 
-              // Market Overview Widget con datos reales
-              MarketOverviewWidget(marketState: marketState),
+              const MarketOverviewWidget(),
             ],
           ),
         ),
         ResponsiveRowColumnItem(
           rowFlex: 1,
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const RecentActivitiesWidget(),
               const SizedBox(height: AppSpacing.lg),

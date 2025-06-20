@@ -8,9 +8,7 @@ import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
 class MarketOverviewWidget extends StatelessWidget {
-  final MarketDataState? marketState;
-
-  const MarketOverviewWidget({super.key, this.marketState});
+  const MarketOverviewWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -18,27 +16,31 @@ class MarketOverviewWidget extends StatelessWidget {
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return Container(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(color: AppColors.getBorderPrimary(isDark)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isDark),
-              const SizedBox(height: AppSpacing.lg),
-              _buildContent(isDark),
-            ],
-          ),
+        return BlocBuilder<MarketDataBloc, MarketDataState>(
+          builder: (context, marketState) {
+            return Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: AppColors.getCardBackground(isDark),
+                borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(isDark, marketState),
+                  const SizedBox(height: AppSpacing.lg),
+                  _buildContent(isDark, marketState),
+                ],
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget _buildHeader(bool isDark, MarketDataState marketState) {
     return Row(
       children: [
         Text(
@@ -48,13 +50,13 @@ class MarketOverviewWidget extends StatelessWidget {
           ),
         ),
         const Spacer(),
-        if (marketState is MarketDataLoaded) _buildLastUpdated(isDark),
+        if (marketState is MarketDataLoaded)
+          _buildLastUpdated(isDark, marketState),
       ],
     );
   }
 
-  Widget _buildLastUpdated(bool isDark) {
-    final state = marketState as MarketDataLoaded;
+  Widget _buildLastUpdated(bool isDark, MarketDataLoaded state) {
     final lastUpdated = state.lastUpdated;
     final timeDiff = DateTime.now().difference(lastUpdated);
 
@@ -96,13 +98,13 @@ class MarketOverviewWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(bool isDark) {
+  Widget _buildContent(bool isDark, MarketDataState marketState) {
     if (marketState is MarketDataLoading) {
       return _buildLoadingState(isDark);
     } else if (marketState is MarketDataLoaded) {
-      return _buildLoadedState(marketState as MarketDataLoaded, isDark);
+      return _buildLoadedState(marketState, isDark);
     } else if (marketState is MarketDataError) {
-      return _buildErrorState(marketState as MarketDataError, isDark);
+      return _buildErrorState(marketState, isDark);
     } else {
       return _buildInitialState(isDark);
     }
