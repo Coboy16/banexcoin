@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '/core/injections/injections.dart' as di;
 import '/core/router/app_router.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await di.initializeDependenciesWithEnvironment(di.Environment.development);
+  di.validateDependencies();
 
   runApp(
     MultiBlocProvider(providers: getListBloc(), child: const BanexCoinApp()),

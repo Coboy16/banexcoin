@@ -376,17 +376,17 @@ class MarketDataRepositoryImpl implements MarketDataRepository {
   }
 
   /// Obtiene mini ticker desde cache si está vigente
-  MiniTickerEntity? _getCachedMiniTicker(String symbol) {
-    final key = symbol.toLowerCase();
-    final lastUpdate = _lastMiniTickerUpdate[key];
+  // MiniTickerEntity? _getCachedMiniTicker(String symbol) {
+  //   final key = symbol.toLowerCase();
+  //   final lastUpdate = _lastMiniTickerUpdate[key];
 
-    if (lastUpdate != null &&
-        DateTime.now().difference(lastUpdate) < _cacheExpiration) {
-      return _miniTickerCache[key];
-    }
+  //   if (lastUpdate != null &&
+  //       DateTime.now().difference(lastUpdate) < _cacheExpiration) {
+  //     return _miniTickerCache[key];
+  //   }
 
-    return null;
-  }
+  //   return null;
+  // }
 
   /// Obtiene depth desde cache si está vigente
   DepthEntity? _getCachedDepth(String symbol) {
