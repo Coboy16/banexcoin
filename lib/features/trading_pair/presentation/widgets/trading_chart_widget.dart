@@ -1,12 +1,14 @@
+import 'dart:collection';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'dart:async';
-import 'dart:math';
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
+import '/features/trading_pair/domain/entities/entities.dart';
 
 class TradingChartTwoWidget extends StatefulWidget {
   const TradingChartTwoWidget({super.key, required this.symbol});
@@ -18,156 +20,20 @@ class TradingChartTwoWidget extends StatefulWidget {
 }
 
 class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
-  late Timer _updateTimer;
-  final Random _random = Random();
-
-  List<FlSpot> _priceData = [];
-  List<FlSpot> _volumeData = [];
-  List<CandleData> _candleData = [];
-  int _dataIndex = 0;
-
   ChartTimeframeTwo _selectedTimeframe = ChartTimeframeTwo.h1;
   ChartTypeTwo _selectedChartType = ChartTypeTwo.line;
   bool _showVolume = true;
-  bool _showMA = false; // Moving Average
+  bool _showMA = false;
+  bool _isTimeframeLoading = false;
 
+  static const double _kVisibleCandleCount = 100.0;
+
+  List<FlSpot> _priceData = [];
+  List<FlSpot> _volumeData = [];
   double _minPrice = 0;
   double _maxPrice = 0;
-  double _currentPrice = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _generateInitialData();
-    _startRealTimeUpdates();
-  }
-
-  @override
-  void dispose() {
-    _updateTimer.cancel();
-    super.dispose();
-  }
-
-  void _generateInitialData() {
-    final basePrice = _getBasePriceForSymbol(widget.symbol);
-    _currentPrice = basePrice;
-
-    // Generar datos históricos realistas
-    for (int i = 0; i < 100; i++) {
-      final variation = (_random.nextDouble() - 0.5) * 0.02; // ±1%
-      final price = basePrice * (1 + variation + (sin(i * 0.1) * 0.01));
-      final volume = 500000 + _random.nextDouble() * 2000000;
-
-      _priceData.add(FlSpot(i.toDouble(), price));
-      _volumeData.add(FlSpot(i.toDouble(), volume));
-
-      // Generar datos de candlestick
-      final open = i == 0 ? basePrice : _candleData.last.close;
-      final close = price;
-      final high = max(open, close) * (1 + _random.nextDouble() * 0.005);
-      final low = min(open, close) * (1 - _random.nextDouble() * 0.005);
-
-      _candleData.add(
-        CandleData(
-          x: i.toDouble(),
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-          volume: volume,
-        ),
-      );
-    }
-
-    _updatePriceRange();
-    _dataIndex = 100;
-  }
-
-  double _getBasePriceForSymbol(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return 43250.0;
-      case 'ETH/USDT':
-        return 2650.0;
-      case 'BNB/USDT':
-        return 315.0;
-      case 'ADA/USDT':
-        return 0.485;
-      default:
-        return 1000.0;
-    }
-  }
-
-  void _startRealTimeUpdates() {
-    _updateTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        _addNewDataPoint();
-      }
-    });
-  }
-
-  void _addNewDataPoint() {
-    // Remover datos antiguos si hay demasiados
-    if (_priceData.length >= 200) {
-      _priceData.removeAt(0);
-      _volumeData.removeAt(0);
-      _candleData.removeAt(0);
-
-      // Reindexar
-      for (int i = 0; i < _priceData.length; i++) {
-        _priceData[i] = FlSpot(i.toDouble(), _priceData[i].y);
-        _volumeData[i] = FlSpot(i.toDouble(), _volumeData[i].y);
-        _candleData[i] = CandleData(
-          x: i.toDouble(),
-          open: _candleData[i].open,
-          high: _candleData[i].high,
-          low: _candleData[i].low,
-          close: _candleData[i].close,
-          volume: _candleData[i].volume,
-        );
-      }
-      _dataIndex = _priceData.length;
-    }
-
-    // Generar nuevo punto de datos
-    final lastPrice = _priceData.isNotEmpty ? _priceData.last.y : _currentPrice;
-    final priceChange = (_random.nextDouble() - 0.5) * 0.015; // ±0.75%
-    final newPrice = lastPrice * (1 + priceChange);
-    final newVolume = 500000 + _random.nextDouble() * 2000000;
-
-    // Generar nueva vela
-    final lastCandle = _candleData.isNotEmpty ? _candleData.last : null;
-    final open = lastCandle?.close ?? newPrice;
-    final close = newPrice;
-    final high = max(open, close) * (1 + _random.nextDouble() * 0.003);
-    final low = min(open, close) * (1 - _random.nextDouble() * 0.003);
-
-    setState(() {
-      _priceData.add(FlSpot(_dataIndex.toDouble(), newPrice));
-      _volumeData.add(FlSpot(_dataIndex.toDouble(), newVolume));
-      _candleData.add(
-        CandleData(
-          x: _dataIndex.toDouble(),
-          open: open,
-          high: high,
-          low: low,
-          close: close,
-          volume: newVolume,
-        ),
-      );
-
-      _currentPrice = newPrice;
-      _updatePriceRange();
-      _dataIndex++;
-    });
-  }
-
-  void _updatePriceRange() {
-    if (_priceData.isNotEmpty) {
-      _minPrice = _priceData.map((e) => e.y).reduce((a, b) => a < b ? a : b);
-      _maxPrice = _priceData.map((e) => e.y).reduce((a, b) => a > b ? a : b);
-    }
-  }
+  final SplayTreeMap<int, KlineEntity> _localKlines =
+      SplayTreeMap<int, KlineEntity>();
 
   @override
   Widget build(BuildContext context) {
@@ -175,33 +41,109 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(color: AppColors.getBorderPrimary(isDark)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // Cambiar a min
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isDark),
-              const Divider(height: 1),
-              SizedBox(
-                height: 400, // Altura fija para el gráfico
-                child: _buildChart(isDark),
-              ),
-              if (_showVolume)
-                SizedBox(height: 100, child: _buildVolumeChart(isDark)),
-              _buildControls(isDark),
-            ],
-          ),
+        return BlocConsumer<TradingPairBloc, TradingPairState>(
+          listener: (context, state) {
+            if (state is TradingPairLoaded) {
+              _updateChartData(state);
+            }
+          },
+          builder: (context, state) {
+            if (state is TradingPairLoaded) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.getCardBackground(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                  border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(isDark, state.isStreaming),
+                    const Divider(height: 1),
+                    SizedBox(height: 400, child: _buildChart(isDark, state)),
+                    if (_showVolume)
+                      SizedBox(
+                        height: 100,
+                        child: _buildVolumeChart(isDark, state),
+                      ),
+                    _buildControls(isDark),
+                  ],
+                ),
+              );
+            }
+            return _buildLoadingState(isDark);
+          },
         );
       },
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  void _updateChartData(TradingPairLoaded state) {
+    if (state.klines.isEmpty) {
+      return;
+    }
+
+    bool isFullRefresh = state.klines.length > 2;
+
+    if (isFullRefresh) {
+      _localKlines.clear();
+      for (var kline in state.klines) {
+        _localKlines[kline.openTime.millisecondsSinceEpoch] = kline;
+      }
+    } else {
+      for (var kline in state.klines) {
+        _localKlines[kline.openTime.millisecondsSinceEpoch] = kline;
+      }
+    }
+
+    if (_localKlines.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isTimeframeLoading = false;
+        });
+      }
+      return;
+    }
+
+    final List<KlineEntity> klinesForChart = _localKlines.values.toList();
+    final newPriceData = <FlSpot>[];
+    final newVolumeData = <FlSpot>[];
+
+    for (int i = 0; i < klinesForChart.length; i++) {
+      final kline = klinesForChart[i];
+      newPriceData.add(FlSpot(i.toDouble(), kline.closePrice));
+      newVolumeData.add(FlSpot(i.toDouble(), kline.quoteVolume));
+    }
+
+    if (newPriceData.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _isTimeframeLoading = false;
+        });
+      }
+      return;
+    }
+
+    final newMinPrice = newPriceData
+        .map((e) => e.y)
+        .reduce((a, b) => a < b ? a : b);
+    final newMaxPrice = newPriceData
+        .map((e) => e.y)
+        .reduce((a, b) => a > b ? a : b);
+
+    if (mounted) {
+      setState(() {
+        _priceData = newPriceData;
+        _volumeData = newVolumeData;
+        _minPrice = newMinPrice;
+        _maxPrice = newMaxPrice;
+        _isTimeframeLoading = false;
+      });
+    }
+  }
+
+  Widget _buildHeader(bool isDark, bool isStreaming) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
@@ -225,28 +167,37 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
               vertical: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: AppColors.getSuccess(isDark).withOpacity(0.1),
+              color: isStreaming
+                  ? AppColors.getSuccess(isDark).withOpacity(0.1)
+                  : AppColors.getWarning(isDark).withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppBorderRadius.sm),
               border: Border.all(
-                color: AppColors.getSuccess(isDark).withOpacity(0.3),
+                color: isStreaming
+                    ? AppColors.getSuccess(isDark).withOpacity(0.3)
+                    : AppColors.getWarning(isDark).withOpacity(0.3),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: AppColors.getSuccess(isDark),
+                    color: isStreaming
+                        ? AppColors.getSuccess(isDark)
+                        : AppColors.getWarning(isDark),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  'LIVE',
+                  isStreaming ? 'LIVE' : 'OFFLINE',
                   style: AppTextStyles.caption.copyWith(
-                    color: AppColors.getSuccess(isDark),
+                    color: isStreaming
+                        ? AppColors.getSuccess(isDark)
+                        : AppColors.getWarning(isDark),
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -373,80 +324,126 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     switch (type) {
       case ChartTypeTwo.line:
         return LucideIcons.chartLine;
-      case ChartTypeTwo.candle:
-        return LucideIcons.chartCandlestick;
+
       case ChartTypeTwo.area:
         return LucideIcons.chartArea;
     }
   }
 
-  Widget _buildChart(bool isDark) {
+  Widget _buildChart(bool isDark, TradingPairLoaded state) {
+    if (_isTimeframeLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_priceData.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              LucideIcons.chartLine,
+              size: 48,
+              color: AppColors.getTextMuted(isDark),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No chart data available',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.getTextMuted(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: _selectedChartType == ChartTypeTwo.line
-          ? _buildLineChart(isDark)
+          ? _buildLineChart(isDark, state)
           : _selectedChartType == ChartTypeTwo.area
-          ? _buildAreaChart(isDark)
-          : _buildCandlestickChart(isDark),
+          ? _buildAreaChart(isDark, state)
+          : _buildCandlestickChart(isDark, state),
     );
   }
 
-  Widget _buildLineChart(bool isDark) {
+  Widget _buildLineChart(bool isDark, TradingPairLoaded state) {
+    final isPositive =
+        _priceData.isNotEmpty && _priceData.last.y > _priceData.first.y;
+
+    final priceRange = _maxPrice - _minPrice;
+    final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
+
+    final double lastX = _priceData.isNotEmpty ? _priceData.last.x : 0.0;
+    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    final double maxX = lastX;
+
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: (_maxPrice - _minPrice) / 6,
+          horizontalInterval: horizontalInterval,
           getDrawingHorizontalLine: (value) => FlLine(
             color: AppColors.getBorderSecondary(isDark),
             strokeWidth: 1,
           ),
         ),
-        titlesData: _buildTitlesData(isDark),
+        titlesData: _buildTitlesData(isDark, state),
         borderData: FlBorderData(show: false),
-        minX: _priceData.isNotEmpty ? _priceData.first.x : 0,
-        maxX: _priceData.isNotEmpty ? _priceData.last.x : 100,
-        minY: _minPrice * 0.998,
-        maxY: _maxPrice * 1.002,
+        minX: minX,
+        maxX: maxX,
+        minY: _minPrice > 0 ? _minPrice * 0.998 : _minPrice - 1,
+        maxY: _maxPrice > 0 ? _maxPrice * 1.002 : _maxPrice + 1,
         lineBarsData: [
           LineChartBarData(
             spots: _priceData,
             isCurved: true,
-            color: AppColors.getPrimaryBlue(isDark),
+            color: isPositive
+                ? AppColors.getBuyGreen(isDark)
+                : AppColors.getSellRed(isDark),
             barWidth: 2,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false),
             belowBarData: BarAreaData(show: false),
           ),
-          if (_showMA) _buildMovingAverageLine(isDark),
+          if (_showMA && _priceData.length >= 20)
+            _buildMovingAverageLine(isDark),
         ],
-        lineTouchData: _buildLineTouchData(isDark),
+        lineTouchData: _buildLineTouchData(isDark, state),
       ),
+      duration: const Duration(milliseconds: 250),
     );
   }
 
-  Widget _buildAreaChart(bool isDark) {
+  Widget _buildAreaChart(bool isDark, TradingPairLoaded state) {
     final isPositive =
         _priceData.isNotEmpty && _priceData.last.y > _priceData.first.y;
+
+    final priceRange = _maxPrice - _minPrice;
+    final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
+
+    final double lastX = _priceData.isNotEmpty ? _priceData.last.x : 0.0;
+    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    final double maxX = lastX;
 
     return LineChart(
       LineChartData(
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: (_maxPrice - _minPrice) / 6,
+          horizontalInterval: horizontalInterval,
           getDrawingHorizontalLine: (value) => FlLine(
             color: AppColors.getBorderSecondary(isDark),
             strokeWidth: 1,
           ),
         ),
-        titlesData: _buildTitlesData(isDark),
+        titlesData: _buildTitlesData(isDark, state),
         borderData: FlBorderData(show: false),
-        minX: _priceData.isNotEmpty ? _priceData.first.x : 0,
-        maxX: _priceData.isNotEmpty ? _priceData.last.x : 100,
-        minY: _minPrice * 0.998,
-        maxY: _maxPrice * 1.002,
+        minX: minX,
+        maxX: maxX,
+        minY: _minPrice > 0 ? _minPrice * 0.998 : _minPrice - 1,
+        maxY: _maxPrice > 0 ? _maxPrice * 1.002 : _maxPrice + 1,
         lineBarsData: [
           LineChartBarData(
             spots: _priceData,
@@ -484,72 +481,74 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
             ),
           ),
         ],
-        lineTouchData: _buildLineTouchData(isDark),
+        lineTouchData: _buildLineTouchData(isDark, state),
       ),
+      duration: const Duration(milliseconds: 250),
     );
   }
 
-  Widget _buildCandlestickChart(bool isDark) {
-    // Implementación simplificada de candlestick usando líneas
-    List<LineChartBarData> candleBars = [];
+  Widget _buildCandlestickChart(bool isDark, TradingPairLoaded state) {
+    final klines = _localKlines.values.toList();
+    List<CandleStickChartBarData> candleBars = [];
 
-    for (var candle in _candleData) {
-      final isGreen = candle.close > candle.open;
-      final color = isGreen
-          ? AppColors.getBuyGreen(isDark)
-          : AppColors.getSellRed(isDark);
-
-      // Línea del cuerpo de la vela
+    for (int i = 0; i < klines.length; i++) {
+      final kline = klines[i];
       candleBars.add(
-        LineChartBarData(
-          spots: [
-            FlSpot(candle.x, candle.open),
-            FlSpot(candle.x, candle.close),
-          ],
-          color: color,
-          barWidth: 3,
-          dotData: const FlDotData(show: false),
-        ),
-      );
-
-      // Línea de la mecha (high-low)
-      candleBars.add(
-        LineChartBarData(
-          spots: [FlSpot(candle.x, candle.low), FlSpot(candle.x, candle.high)],
-          color: color.withOpacity(0.7),
-          barWidth: 1,
-          dotData: const FlDotData(show: false),
+        CandleStickChartBarData(
+          x: i.toDouble(),
+          data: CandleStickChartCandleData(
+            open: kline.openPrice,
+            high: kline.highPrice,
+            low: kline.lowPrice,
+            close: kline.closePrice,
+          ),
         ),
       );
     }
 
-    return LineChart(
-      LineChartData(
+    final priceRange = _maxPrice - _minPrice;
+    final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
+
+    final double lastX = klines.isNotEmpty
+        ? (klines.length - 1).toDouble()
+        : 0.0;
+    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    final double maxX = lastX;
+
+    return CandleStickChart(
+      CandleStickChartData(
+        minX: minX,
+        maxX: maxX,
+        candleTouchData: CandleStickChartTouchData(
+          touchTooltipData: CandleStickChartTouchTooltipData(
+            tooltipBgColor: AppColors.getCardBackground(isDark),
+          ),
+        ),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: (_maxPrice - _minPrice) / 6,
+          horizontalInterval: horizontalInterval,
           getDrawingHorizontalLine: (value) => FlLine(
             color: AppColors.getBorderSecondary(isDark),
             strokeWidth: 1,
           ),
         ),
-        titlesData: _buildTitlesData(isDark),
+        titlesData: _buildTitlesData(isDark, state),
         borderData: FlBorderData(show: false),
-        minX: _candleData.isNotEmpty ? _candleData.first.x : 0,
-        maxX: _candleData.isNotEmpty ? _candleData.last.x : 100,
-        minY: _minPrice * 0.998,
-        maxY: _maxPrice * 1.002,
-        lineBarsData: candleBars,
-        lineTouchData: _buildLineTouchData(isDark),
+        minY: _minPrice > 0 ? _minPrice * 0.998 : _minPrice - 1,
+        maxY: _maxPrice > 0 ? _maxPrice * 1.002 : _maxPrice + 1,
+        candlesData: candleBars,
       ),
     );
   }
 
   LineChartBarData _buildMovingAverageLine(bool isDark) {
-    // Calcular media móvil simple de 20 períodos
     List<FlSpot> maData = [];
     const period = 20;
+
+    if (_priceData.length < period) {
+      return LineChartBarData(spots: [], color: Colors.transparent);
+    }
 
     for (int i = period - 1; i < _priceData.length; i++) {
       double sum = 0;
@@ -568,11 +567,17 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
       isStrokeCapRound: true,
       dotData: const FlDotData(show: false),
       belowBarData: BarAreaData(show: false),
-      dashArray: [5, 5], // Línea punteada
+      dashArray: [5, 5],
     );
   }
 
-  FlTitlesData _buildTitlesData(bool isDark) {
+  FlTitlesData _buildTitlesData(bool isDark, TradingPairLoaded state) {
+    final dataLength = _priceData.length;
+    final interval = dataLength > 10 ? (dataLength / 5).floorToDouble() : 2.0;
+
+    final priceRange = _maxPrice - _minPrice;
+    final priceInterval = priceRange > 0 ? priceRange / 5 : 1.0;
+
     return FlTitlesData(
       show: true,
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -581,7 +586,7 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
         sideTitles: SideTitles(
           showTitles: true,
           reservedSize: 30,
-          interval: (_priceData.length / 5).floorToDouble(),
+          interval: interval,
           getTitlesWidget: (value, meta) {
             return Text(
               _formatTimeLabel(value.toInt()),
@@ -595,11 +600,11 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
       leftTitles: AxisTitles(
         sideTitles: SideTitles(
           showTitles: true,
-          interval: (_maxPrice - _minPrice) / 5,
+          interval: priceInterval,
           reservedSize: 80,
           getTitlesWidget: (value, meta) {
             return Text(
-              '\${value.toStringAsFixed(value >= 1000 ? 0 : 2)}',
+              '\$${value.toStringAsFixed(value >= 1000 ? 0 : 2)}',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.getTextMuted(isDark),
               ),
@@ -610,14 +615,14 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     );
   }
 
-  LineTouchData _buildLineTouchData(bool isDark) {
+  LineTouchData _buildLineTouchData(bool isDark, TradingPairLoaded state) {
     return LineTouchData(
       touchTooltipData: LineTouchTooltipData(
         tooltipBorder: BorderSide(color: AppColors.getBorderPrimary(isDark)),
         getTooltipItems: (touchedSpots) {
           return touchedSpots.map((spot) {
             return LineTooltipItem(
-              '\${spot.y.toStringAsFixed(_currentPrice >= 1 ? 2 : 4)}',
+              '\$${spot.y.toStringAsFixed(spot.y >= 1 ? 2 : 4)}',
               TextStyle(
                 color: AppColors.getTextPrimary(isDark),
                 fontWeight: FontWeight.bold,
@@ -627,39 +632,44 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
           }).toList();
         },
       ),
-      touchCallback: (FlTouchEvent event, LineTouchResponse? touchResponse) {
-        // Manejar interacciones táctiles si es necesario
-      },
       handleBuiltInTouches: true,
     );
   }
 
   String _formatTimeLabel(int index) {
-    // Simular etiquetas de tiempo basadas en el timeframe seleccionado
+    if (index < 0 || index >= _localKlines.length) return '';
+
+    final kline = _localKlines.values.elementAt(index);
+    final time = kline.openTime;
+
     switch (_selectedTimeframe) {
       case ChartTimeframeTwo.m15:
-        return '${(index * 15) % 60}m';
       case ChartTimeframeTwo.h1:
-        return '${index % 24}h';
       case ChartTimeframeTwo.h4:
-        return '${(index * 4) % 24}h';
+        return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
       case ChartTimeframeTwo.d1:
-        return '${index % 7}d';
+        return '${time.day}/${time.month}';
       case ChartTimeframeTwo.w1:
-        return '${index}w';
+        return 'W${(time.day / 7).ceil()}';
     }
   }
 
-  Widget _buildVolumeChart(bool isDark) {
+  Widget _buildVolumeChart(bool isDark, TradingPairLoaded state) {
+    if (_volumeData.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final maxVolume = _volumeData
+        .map((e) => e.y)
+        .reduce((a, b) => a > b ? a : b);
+    final volumeInterval = maxVolume > 0 ? maxVolume / 3 : 1000000.0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: _volumeData.isNotEmpty
-              ? _volumeData.map((e) => e.y).reduce((a, b) => a > b ? a : b) *
-                    1.1
-              : 1000000,
+          maxY: maxVolume * 1.1,
           barTouchData: BarTouchData(
             touchTooltipData: BarTouchTooltipData(
               tooltipBorder: BorderSide(
@@ -676,13 +686,15 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
               },
             ),
           ),
-          titlesData: FlTitlesData(show: false),
+          titlesData: const FlTitlesData(show: false),
           borderData: FlBorderData(show: false),
           barGroups: _volumeData.asMap().entries.map((entry) {
             final index = entry.key;
             final volume = entry.value;
             final isGreen =
-                index > 0 && _priceData[index].y > _priceData[index - 1].y;
+                index > 0 &&
+                index < _priceData.length &&
+                _priceData[index].y > _priceData[index - 1].y;
 
             return BarChartGroupData(
               x: index,
@@ -703,16 +715,14 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
           gridData: FlGridData(
             show: true,
             drawVerticalLine: false,
-            horizontalInterval: _volumeData.isNotEmpty
-                ? _volumeData.map((e) => e.y).reduce((a, b) => a > b ? a : b) /
-                      3
-                : 500000,
+            horizontalInterval: volumeInterval,
             getDrawingHorizontalLine: (value) => FlLine(
               color: AppColors.getBorderSecondary(isDark),
               strokeWidth: 0.5,
             ),
           ),
         ),
+        duration: const Duration(milliseconds: 250),
       ),
     );
   }
@@ -750,7 +760,18 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
             return Padding(
               padding: const EdgeInsets.only(right: AppSpacing.sm),
               child: GestureDetector(
-                onTap: () => setState(() => _selectedTimeframe = timeframe),
+                onTap: () {
+                  if (_isTimeframeLoading) return;
+                  setState(() {
+                    _selectedTimeframe = timeframe;
+                    _isTimeframeLoading = true;
+                  });
+                  context.read<TradingPairBloc>().add(
+                    ChangeKlineInterval(
+                      interval: _getTimeframeInterval(timeframe),
+                    ),
+                  );
+                },
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.md,
@@ -801,26 +822,132 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
         return '1w';
     }
   }
-}
 
-class CandleData {
-  final double x;
-  final double open;
-  final double high;
-  final double low;
-  final double close;
-  final double volume;
+  String _getTimeframeInterval(ChartTimeframeTwo timeframe) {
+    switch (timeframe) {
+      case ChartTimeframeTwo.m15:
+        return '15m';
+      case ChartTimeframeTwo.h1:
+        return '1h';
+      case ChartTimeframeTwo.h4:
+        return '4h';
+      case ChartTimeframeTwo.d1:
+        return '1d';
+      case ChartTimeframeTwo.w1:
+        return '1w';
+    }
+  }
 
-  CandleData({
-    required this.x,
-    required this.open,
-    required this.high,
-    required this.low,
-    required this.close,
-    required this.volume,
-  });
+  Widget _buildLoadingState(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.getCardBackground(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.chartCandlestick,
+                  color: AppColors.getPrimaryBlue(isDark),
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Price Chart',
+                  style: AppTextStyles.h3.copyWith(
+                    color: AppColors.getTextPrimary(isDark),
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 400,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Loading chart data...',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.getTextMuted(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 enum ChartTimeframeTwo { m15, h1, h4, d1, w1 }
 
-enum ChartTypeTwo { line, candle, area }
+enum ChartTypeTwo { line, area }
+
+class CandleStickChart extends StatelessWidget {
+  final CandleStickChartData data;
+  const CandleStickChart(this.data, {super.key});
+  @override
+  Widget build(BuildContext context) =>
+      const Placeholder(child: Text('CandleStickChart'));
+}
+
+class CandleStickChartData {
+  final List<CandleStickChartBarData> candlesData;
+  final FlGridData gridData;
+  final FlTitlesData titlesData;
+  final FlBorderData borderData;
+  final double? minY, maxY, minX, maxX;
+  final CandleStickChartTouchData candleTouchData;
+  CandleStickChartData({
+    this.candlesData = const [],
+    this.gridData = const FlGridData(),
+    this.titlesData = const FlTitlesData(),
+    FlBorderData? borderData,
+    this.minY,
+    this.maxY,
+    this.minX,
+    this.maxX,
+    this.candleTouchData = const CandleStickChartTouchData(),
+  }) : borderData = borderData ?? FlBorderData();
+}
+
+class CandleStickChartBarData {
+  final double x;
+  final CandleStickChartCandleData data;
+  CandleStickChartBarData({required this.x, required this.data});
+}
+
+class CandleStickChartCandleData {
+  final double? open, high, low, close;
+  CandleStickChartCandleData({this.open, this.high, this.low, this.close});
+}
+
+class CandleStickChartTouchData {
+  final CandleStickChartTouchTooltipData touchTooltipData;
+  const CandleStickChartTouchData({
+    this.touchTooltipData = const CandleStickChartTouchTooltipData(),
+  });
+}
+
+class CandleStickChartTouchTooltipData {
+  final Color tooltipBgColor;
+  const CandleStickChartTouchTooltipData({this.tooltipBgColor = Colors.blue});
+}

@@ -1,129 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'dart:async';
-import 'dart:math';
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
+import '/features/trading_pair/domain/entities/entities.dart';
 
-class RecentTradesWidget extends StatefulWidget {
+class RecentTradesWidget extends StatelessWidget {
   const RecentTradesWidget({super.key, required this.symbol});
 
   final String symbol;
-
-  @override
-  State<RecentTradesWidget> createState() => _RecentTradesWidgetState();
-}
-
-class _RecentTradesWidgetState extends State<RecentTradesWidget> {
-  late Timer _updateTimer;
-  final Random _random = Random();
-
-  List<TradeEntry> _trades = [];
-  double _currentPrice = 43250.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _currentPrice = _getBasePriceForSymbol(widget.symbol);
-    _generateInitialTrades();
-    _startRealTimeUpdates();
-  }
-
-  @override
-  void dispose() {
-    _updateTimer.cancel();
-    super.dispose();
-  }
-
-  double _getBasePriceForSymbol(String symbol) {
-    switch (symbol.toUpperCase()) {
-      case 'BTC/USDT':
-        return 43250.0;
-      case 'ETH/USDT':
-        return 2650.0;
-      case 'BNB/USDT':
-        return 315.0;
-      case 'ADA/USDT':
-        return 0.485;
-      default:
-        return 1000.0;
-    }
-  }
-
-  void _generateInitialTrades() {
-    _trades.clear();
-    final now = DateTime.now();
-
-    for (int i = 0; i < 20; i++) {
-      final price =
-          _currentPrice * (0.998 + _random.nextDouble() * 0.004); // ±0.2%
-      final amount = 0.01 + _random.nextDouble() * 0.5;
-      final isBuy = _random.nextBool();
-      final time = now.subtract(Duration(seconds: i * 5));
-
-      _trades.add(
-        TradeEntry(
-          price: price,
-          amount: amount,
-          time: time,
-          isBuy: isBuy,
-          id: 'trade_${now.millisecondsSinceEpoch}_$i',
-        ),
-      );
-    }
-
-    // Ordenar por tiempo descendente (más recientes primero)
-    _trades.sort((a, b) => b.time.compareTo(a.time));
-  }
-
-  void _startRealTimeUpdates() {
-    _updateTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
-      if (mounted) {
-        _addNewTrade();
-      }
-    });
-  }
-
-  void _addNewTrade() {
-    // Simular cambio de precio realista
-    final priceChange = (_random.nextDouble() - 0.5) * 0.002; // ±0.1%
-    _currentPrice = _currentPrice * (1 + priceChange);
-
-    final amount = 0.01 + _random.nextDouble() * 1.0;
-    final isBuy = _random.nextBool();
-
-    final newTrade = TradeEntry(
-      price: _currentPrice,
-      amount: amount,
-      time: DateTime.now(),
-      isBuy: isBuy,
-      id: 'trade_${DateTime.now().millisecondsSinceEpoch}',
-    );
-
-    setState(() {
-      _trades.insert(0, newTrade);
-
-      // Mantener solo los últimos 50 trades
-      if (_trades.length > 50) {
-        _trades.removeLast();
-      }
-    });
-  }
-
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final difference = now.difference(time);
-
-    if (difference.inSeconds < 60) {
-      return '${difference.inSeconds}s ago';
-    } else if (difference.inMinutes < 60) {
-      return '${difference.inMinutes}m ago';
-    } else {
-      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -131,33 +17,48 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.getCardBackground(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-            border: Border.all(color: AppColors.getBorderPrimary(isDark)),
-          ),
-          child: Column(
-            mainAxisSize:
-                MainAxisSize.min, // Cambiar a min para evitar problemas
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(isDark),
-              const Divider(height: 1),
-              _buildTradesHeader(isDark),
-              SizedBox(
-                height: 300, // Altura fija para la lista de trades
-                child: _buildTradesList(isDark),
-              ),
-              _buildFooter(isDark),
-            ],
-          ),
+        return BlocBuilder<TradingPairBloc, TradingPairState>(
+          builder: (context, state) {
+            if (state is TradingPairLoaded) {
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.getCardBackground(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                  border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildHeader(
+                      isDark,
+                      state.isStreaming,
+                      state.recentTrades.length,
+                    ),
+                    const Divider(height: 1),
+                    _buildTradesHeader(isDark),
+                    SizedBox(
+                      height: 300,
+                      child: _buildTradesList(
+                        isDark,
+                        state.recentTrades,
+                        state.tradingPair.currentPrice,
+                      ),
+                    ),
+                    _buildFooter(isDark, state.recentTrades),
+                  ],
+                ),
+              );
+            }
+
+            return _buildLoadingState(isDark);
+          },
         );
       },
     );
   }
 
-  Widget _buildHeader(bool isDark) {
+  Widget _buildHeader(bool isDark, bool isStreaming, int tradesCount) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Row(
@@ -181,28 +82,37 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
               vertical: AppSpacing.xs,
             ),
             decoration: BoxDecoration(
-              color: AppColors.getSuccess(isDark).withOpacity(0.1),
+              color: isStreaming
+                  ? AppColors.getSuccess(isDark).withOpacity(0.1)
+                  : AppColors.getWarning(isDark).withOpacity(0.1),
               borderRadius: BorderRadius.circular(AppBorderRadius.sm),
               border: Border.all(
-                color: AppColors.getSuccess(isDark).withOpacity(0.3),
+                color: isStreaming
+                    ? AppColors.getSuccess(isDark).withOpacity(0.3)
+                    : AppColors.getWarning(isDark).withOpacity(0.3),
               ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: AppColors.getSuccess(isDark),
+                    color: isStreaming
+                        ? AppColors.getSuccess(isDark)
+                        : AppColors.getWarning(isDark),
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
-                  'LIVE',
+                  isStreaming ? 'LIVE' : 'OFFLINE',
                   style: AppTextStyles.caption.copyWith(
-                    color: AppColors.getSuccess(isDark),
+                    color: isStreaming
+                        ? AppColors.getSuccess(isDark)
+                        : AppColors.getWarning(isDark),
                     fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
@@ -212,7 +122,7 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
           ),
           const Spacer(),
           Text(
-            '${_trades.length} trades',
+            '$tradesCount trades',
             style: AppTextStyles.caption.copyWith(
               color: AppColors.getTextMuted(isDark),
             ),
@@ -271,29 +181,86 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
     );
   }
 
-  Widget _buildTradesList(bool isDark) {
+  Widget _buildTradesList(
+    bool isDark,
+    List<TradeEntity> trades,
+    double currentPrice,
+  ) {
+    if (trades.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              LucideIcons.chartBar,
+              size: 48,
+              color: AppColors.getTextMuted(isDark),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'No trades available',
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.getTextMuted(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return ListView.builder(
-      itemCount: _trades.length,
+      itemCount: trades.length,
       itemBuilder: (context, index) {
-        final trade = _trades[index];
-        final isRecent = DateTime.now().difference(trade.time).inSeconds < 10;
+        final trade = trades[index];
+        final isRecent =
+            DateTime.now().difference(trade.timestamp).inSeconds < 10;
 
         return TradeRow(
           trade: trade,
           isDark: isDark,
           isRecent: isRecent,
-          formatTime: _formatTime,
-          currentPrice: _currentPrice,
+          currentPrice: currentPrice,
         );
       },
     );
   }
 
-  Widget _buildFooter(bool isDark) {
-    final buyTrades = _trades.where((t) => t.isBuy).length;
-    final buyPercentage = _trades.isNotEmpty
-        ? (buyTrades / _trades.length) * 100
-        : 50;
+  Widget _buildFooter(bool isDark, List<TradeEntity> trades) {
+    if (trades.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppColors.getBorderPrimary(isDark)),
+          ),
+        ),
+        child: Text(
+          'Waiting for trade data...',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.getTextMuted(isDark),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    final buyTrades = trades.where((t) => t.isBuy).length;
+    final sellTrades = trades.where((t) => t.isSell).length;
+    final totalTrades = trades.length;
+
+    final buyPercentage = totalTrades > 0
+        ? (buyTrades / totalTrades) * 100
+        : 50.0;
+    final sellPercentage = 100 - buyPercentage;
+
+    // Calculate volume analysis
+    final buyVolume = trades
+        .where((t) => t.isBuy)
+        .fold(0.0, (sum, t) => sum + t.quoteQuantity);
+    final sellVolume = trades
+        .where((t) => t.isSell)
+        .fold(0.0, (sum, t) => sum + t.quoteQuantity);
+    final totalVolume = buyVolume + sellVolume;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -304,17 +271,18 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
       ),
       child: Column(
         children: [
+          // Trade count ratio
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Buy/Sell Ratio',
+                'Buy/Sell Count',
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.getTextSecondary(isDark),
                 ),
               ),
               Text(
-                '${buyPercentage.toStringAsFixed(1)}% / ${(100 - buyPercentage).toStringAsFixed(1)}%',
+                '$buyTrades / $sellTrades (${buyPercentage.toStringAsFixed(1)}%)',
                 style: AppTextStyles.caption.copyWith(
                   color: AppColors.getTextPrimary(isDark),
                   fontWeight: FontWeight.w600,
@@ -323,6 +291,29 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
+
+          // Volume ratio
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Buy/Sell Volume',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+              Text(
+                '\$${_formatVolume(buyVolume)} / \$${_formatVolume(sellVolume)}',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Visual ratio bar
           Container(
             height: 4,
             decoration: BoxDecoration(
@@ -341,9 +332,9 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
                       ),
                     ),
                   ),
-                if (buyPercentage < 100)
+                if (sellPercentage > 0)
                   Expanded(
-                    flex: (100 - buyPercentage).round(),
+                    flex: sellPercentage.round(),
                     child: Container(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(2),
@@ -354,26 +345,139 @@ class _RecentTradesWidgetState extends State<RecentTradesWidget> {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.sm),
+
+          // Market sentiment
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Market Sentiment',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: _getSentimentColor(
+                    buyPercentage,
+                    isDark,
+                  ).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                  border: Border.all(
+                    color: _getSentimentColor(
+                      buyPercentage,
+                      isDark,
+                    ).withOpacity(0.3),
+                  ),
+                ),
+                child: Text(
+                  _getSentimentText(buyPercentage),
+                  style: AppTextStyles.caption.copyWith(
+                    color: _getSentimentColor(buyPercentage, isDark),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
-}
 
-class TradeEntry {
-  final double price;
-  final double amount;
-  final DateTime time;
-  final bool isBuy;
-  final String id;
+  String _formatVolume(double volume) {
+    if (volume >= 1000000) {
+      return '${(volume / 1000000).toStringAsFixed(1)}M';
+    } else if (volume >= 1000) {
+      return '${(volume / 1000).toStringAsFixed(1)}K';
+    }
+    return volume.toStringAsFixed(0);
+  }
 
-  TradeEntry({
-    required this.price,
-    required this.amount,
-    required this.time,
-    required this.isBuy,
-    required this.id,
-  });
+  Color _getSentimentColor(double buyPercentage, bool isDark) {
+    if (buyPercentage >= 60) {
+      return AppColors.getBuyGreen(isDark);
+    } else if (buyPercentage <= 40) {
+      return AppColors.getSellRed(isDark);
+    }
+    return AppColors.getTextMuted(isDark);
+  }
+
+  String _getSentimentText(double buyPercentage) {
+    if (buyPercentage >= 65) {
+      return 'Strong Bullish';
+    } else if (buyPercentage >= 55) {
+      return 'Bullish';
+    } else if (buyPercentage >= 45) {
+      return 'Neutral';
+    } else if (buyPercentage >= 35) {
+      return 'Bearish';
+    }
+    return 'Strong Bearish';
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.getCardBackground(isDark),
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Row(
+              children: [
+                Icon(
+                  LucideIcons.chartLine,
+                  color: AppColors.getPrimaryBlue(isDark),
+                  size: 20,
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  'Recent Trades',
+                  style: AppTextStyles.h4.copyWith(
+                    color: AppColors.getTextPrimary(isDark),
+                  ),
+                ),
+                const Spacer(),
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 300,
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Loading recent trades...',
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.getTextMuted(isDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class TradeRow extends StatefulWidget {
@@ -382,14 +486,12 @@ class TradeRow extends StatefulWidget {
     required this.trade,
     required this.isDark,
     required this.isRecent,
-    required this.formatTime,
     required this.currentPrice,
   });
 
-  final TradeEntry trade;
+  final TradeEntity trade;
   final bool isDark;
   final bool isRecent;
-  final String Function(DateTime) formatTime;
   final double currentPrice;
 
   @override
@@ -437,6 +539,19 @@ class _TradeRowState extends State<TradeRow>
     super.dispose();
   }
 
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inSeconds < 60) {
+      return '${difference.inSeconds}s ago';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else {
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -467,15 +582,16 @@ class _TradeRowState extends State<TradeRow>
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        widget.trade.price.toStringAsFixed(
-                          widget.currentPrice >= 1 ? 2 : 4,
-                        ),
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: widget.trade.isBuy
-                              ? AppColors.getBuyGreen(widget.isDark)
-                              : AppColors.getSellRed(widget.isDark),
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          widget.trade.formattedPrice,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: widget.trade.isBuy
+                                ? AppColors.getBuyGreen(widget.isDark)
+                                : AppColors.getSellRed(widget.isDark),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -483,16 +599,17 @@ class _TradeRowState extends State<TradeRow>
                 ),
                 Expanded(
                   child: Text(
-                    widget.trade.amount.toStringAsFixed(4),
+                    widget.trade.formattedQuantity,
                     style: AppTextStyles.bodySmall.copyWith(
                       color: AppColors.getTextPrimary(widget.isDark),
                     ),
                     textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Expanded(
                   child: Text(
-                    widget.formatTime(widget.trade.time),
+                    _formatTime(widget.trade.timestamp),
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.getTextMuted(widget.isDark),
                     ),
