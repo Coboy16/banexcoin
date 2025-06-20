@@ -23,10 +23,17 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
 
   bool _isBuySelected = true;
   TradeType _tradeType = TradeType.market;
-  double _availableBalance = 5000.0;
-  double _estimatedFee = 0.0;
-  double _estimatedTotal = 0.0;
+
+  // Balances de ejemplo
+  double _availableQuoteBalance = 5000.00; // e.g., USDT
+  double _availableBaseBalance = 0.5; // e.g., BTC
+
   String _selectedPercentage = '';
+
+  // Variables de estado para los cálculos
+  double _estimatedTotal = 0.0;
+  double _estimatedFee = 0.0;
+  double _receiveAmount = 0.0;
 
   @override
   void initState() {
@@ -37,37 +44,76 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
 
     _amountController.addListener(_calculateEstimates);
     _priceController.addListener(_calculateEstimates);
+    _tradeTabController.addListener(() {
+      setState(() {
+        _isBuySelected = _tradeTabController.index == 0;
+        _amountController.clear();
+        _selectedPercentage = '';
+        _calculateEstimates();
+      });
+    });
   }
 
   @override
   void dispose() {
     _tradeTabController.dispose();
+    _amountController.removeListener(_calculateEstimates);
+    _priceController.removeListener(_calculateEstimates);
     _amountController.dispose();
     _priceController.dispose();
     super.dispose();
   }
 
   void _calculateEstimates() {
-    final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final price = double.tryParse(_priceController.text) ?? 0.0;
+    final double amount = double.tryParse(_amountController.text) ?? 0.0;
+    final double price = double.tryParse(_priceController.text) ?? 0.0;
+    const double feeRate = 0.001; // 0.1%
+
+    double total = 0.0;
+    double fee = 0.0;
+    double receive = 0.0;
+
+    if (amount > 0 && price > 0) {
+      if (_isBuySelected) {
+        // En "Buy", el 'amount' es el total que gastas en la moneda cotizada (USDT)
+        total = amount;
+        fee = total * feeRate;
+        // Recibes la moneda base (BTC)
+        receive = (total - fee) / price;
+      } else {
+        // En "Sell", el 'amount' es la cantidad de la moneda base que vendes (BTC)
+        total = amount * price;
+        fee = total * feeRate;
+        // Recibes la moneda cotizada (USDT)
+        receive = total - fee;
+      }
+    }
 
     setState(() {
-      _estimatedTotal = amount * price;
-      _estimatedFee = _estimatedTotal * 0.001; // 0.1% fee
+      _estimatedTotal = total;
+      _estimatedFee = fee;
+      _receiveAmount = receive;
     });
   }
 
   void _setPercentage(String percentage, double currentPrice) {
-    setState(() {
-      _selectedPercentage = percentage;
-    });
-
+    _selectedPercentage = percentage;
     final percent = double.parse(percentage.replaceAll('%', '')) / 100;
-    final maxAmount = _isBuySelected
-        ? _availableBalance / currentPrice
-        : _availableBalance;
 
-    _amountController.text = (maxAmount * percent).toStringAsFixed(4);
+    double calculatedAmount = 0.0;
+
+    if (_isBuySelected) {
+      // Usar un % del balance en USDT para comprar
+      calculatedAmount = _availableQuoteBalance * percent;
+    } else {
+      // Usar un % del balance en BTC para vender
+      calculatedAmount = _availableBaseBalance * percent;
+    }
+
+    _amountController.text = calculatedAmount.toStringAsFixed(
+      _isBuySelected ? 2 : 6, // Más decimales para cripto
+    );
+    _calculateEstimates(); // Recalcular todo con el nuevo monto
   }
 
   @override
@@ -76,38 +122,47 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
 
-        return BlocBuilder<TradingPairBloc, TradingPairState>(
+        return BlocConsumer<TradingPairBloc, TradingPairState>(
+          listener: (context, state) {
+            if (state is TradingPairLoaded && _tradeType == TradeType.market) {
+              final currentPrice = state.tradingPair.currentPrice;
+              _priceController.text = currentPrice.toStringAsFixed(
+                currentPrice >= 1 ? 2 : 4,
+              );
+              _calculateEstimates();
+            }
+          },
           builder: (context, state) {
             if (state is TradingPairLoaded) {
               final currentPrice = state.tradingPair.currentPrice;
 
-              // Update price controller when market type is selected
-              if (_tradeType == TradeType.market) {
-                _priceController.text = currentPrice.toStringAsFixed(
-                  currentPrice >= 1 ? 2 : 4,
-                );
-              }
-
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildRealTimePriceHeader(isDark, state),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildTradeTypeSelector(isDark),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildOrderTypeSelector(isDark),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildInputFields(isDark, state),
-                    const SizedBox(height: AppSpacing.md),
-                    _buildPercentageButtons(isDark, currentPrice),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildSummary(isDark, state),
-                    const SizedBox(height: AppSpacing.lg),
-                    _buildTradeButton(isDark, state),
-                  ],
+              return Container(
+                decoration: BoxDecoration(
+                  color: AppColors.getCardBackground(isDark),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+                  border: Border.all(color: AppColors.getBorderPrimary(isDark)),
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildRealTimePriceHeader(isDark, state),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildTradeTypeSelector(isDark),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildOrderTypeSelector(isDark),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildInputFields(isDark, state),
+                      const SizedBox(height: AppSpacing.md),
+                      _buildPercentageButtons(isDark, currentPrice),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildSummary(isDark, state),
+                      const SizedBox(height: AppSpacing.lg),
+                      _buildTradeButton(isDark, state),
+                    ],
+                  ),
                 ),
               );
             }
@@ -189,133 +244,55 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
               ),
             ],
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(
-              color: state.isStreaming
-                  ? AppColors.getSuccess(isDark)
-                  : AppColors.getWarning(isDark),
-              shape: BoxShape.circle,
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildTradeTypeSelector(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.getSurfaceColor(isDark),
+    return TabBar(
+      controller: _tradeTabController,
+      indicator: BoxDecoration(
         borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        border: Border.all(color: AppColors.getBorderSecondary(isDark)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _isBuySelected = true),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: _isBuySelected
-                      ? AppColors.getBuyGreen(isDark)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  boxShadow: _isBuySelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.getBuyGreen(
-                              isDark,
-                            ).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      LucideIcons.arrowUp,
-                      color: _isBuySelected
-                          ? Colors.white
-                          : AppColors.getBuyGreen(isDark),
-                      size: 16,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Buy',
-                      style: AppTextStyles.buttonMedium.copyWith(
-                        color: _isBuySelected
-                            ? Colors.white
-                            : AppColors.getTextMuted(isDark),
-                        fontWeight: _isBuySelected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _isBuySelected = false),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: !_isBuySelected
-                      ? AppColors.getSellRed(isDark)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  boxShadow: !_isBuySelected
-                      ? [
-                          BoxShadow(
-                            color: AppColors.getSellRed(
-                              isDark,
-                            ).withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      LucideIcons.arrowDown,
-                      color: !_isBuySelected
-                          ? Colors.white
-                          : AppColors.getSellRed(isDark),
-                      size: 16,
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Sell',
-                      style: AppTextStyles.buttonMedium.copyWith(
-                        color: !_isBuySelected
-                            ? Colors.white
-                            : AppColors.getTextMuted(isDark),
-                        fontWeight: !_isBuySelected
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+        color: _isBuySelected
+            ? AppColors.getBuyGreen(isDark)
+            : AppColors.getSellRed(isDark),
+        boxShadow: [
+          BoxShadow(
+            color:
+                (_isBuySelected
+                        ? AppColors.getBuyGreen(isDark)
+                        : AppColors.getSellRed(isDark))
+                    .withOpacity(0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
+      labelColor: Colors.white,
+      unselectedLabelColor: AppColors.getTextMuted(isDark),
+      tabs: [
+        Tab(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(LucideIcons.arrowUp, size: 16),
+              SizedBox(width: AppSpacing.sm),
+              Text('Buy'),
+            ],
+          ),
+        ),
+        Tab(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(LucideIcons.arrowDown, size: 16),
+              SizedBox(width: AppSpacing.sm),
+              Text('Sell'),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -324,15 +301,23 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
       decoration: BoxDecoration(
         color: AppColors.getSurfaceColor(isDark),
         borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-        border: Border.all(color: AppColors.getBorderSecondary(isDark)),
       ),
       child: Row(
         children: TradeType.values.map((type) {
           final isSelected = type == _tradeType;
           return Expanded(
             child: GestureDetector(
-              onTap: () => setState(() => _tradeType = type),
-              child: Container(
+              onTap: () {
+                setState(() {
+                  _tradeType = type;
+                  if (type == TradeType.limit) {
+                    _priceController.clear();
+                  }
+                  _calculateEstimates();
+                });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: isSelected
@@ -361,43 +346,21 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
   }
 
   Widget _buildInputFields(bool isDark, TradingPairLoaded state) {
-    final currentPrice = state.tradingPair.currentPrice;
-
     return Column(
       children: [
-        if (_tradeType == TradeType.limit) ...[
-          _buildInputField(
-            label: 'Price (${state.tradingPair.quoteAsset})',
-            controller: _priceController,
-            isDark: isDark,
-            suffix: state.tradingPair.quoteAsset,
-            keyboardType: TextInputType.number,
-            enabled: true,
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ] else ...[
-          _buildInputField(
-            label: 'Price (${state.tradingPair.quoteAsset})',
-            controller: _priceController,
-            isDark: isDark,
-            suffix: state.tradingPair.quoteAsset,
-            keyboardType: TextInputType.number,
-            enabled: false,
-            hint:
-                'Market Price: \${currentPrice.toStringAsFixed(currentPrice >= 1 ? 2 : 4)}',
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+        _buildInputField(
+          label: 'Price (${state.tradingPair.quoteAsset})',
+          controller: _priceController,
+          isDark: isDark,
+          enabled: _tradeType == TradeType.limit,
+        ),
+        const SizedBox(height: AppSpacing.md),
         _buildInputField(
           label: _isBuySelected
-              ? 'Amount (${state.tradingPair.quoteAsset})'
+              ? 'Total (${state.tradingPair.quoteAsset})'
               : 'Amount (${state.tradingPair.baseAsset})',
           controller: _amountController,
           isDark: isDark,
-          suffix: _isBuySelected
-              ? state.tradingPair.quoteAsset
-              : state.tradingPair.baseAsset,
-          keyboardType: TextInputType.number,
           enabled: true,
         ),
       ],
@@ -408,10 +371,7 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
     required String label,
     required TextEditingController controller,
     required bool isDark,
-    required String suffix,
-    required TextInputType keyboardType,
     required bool enabled,
-    String? hint,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,40 +383,41 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Container(
-          decoration: BoxDecoration(
-            color: enabled
+        TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          enabled: enabled,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+          ],
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: enabled
                 ? AppColors.getCardBackground(isDark)
                 : AppColors.getSurfaceColor(isDark),
-            borderRadius: BorderRadius.circular(AppBorderRadius.md),
-            border: Border.all(
-              color: enabled
-                  ? AppColors.getBorderPrimary(isDark)
-                  : AppColors.getBorderSecondary(isDark),
+            hintText: '0.00',
+            hintStyle: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.getTextMuted(isDark),
             ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              borderSide: BorderSide(color: AppColors.getBorderPrimary(isDark)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              borderSide: BorderSide(color: AppColors.getBorderPrimary(isDark)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              borderSide: BorderSide(
+                color: AppColors.getPrimaryBlue(isDark),
+                width: 2,
+              ),
+            ),
+            contentPadding: const EdgeInsets.all(AppSpacing.md),
           ),
-          child: TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            enabled: enabled,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-            ],
-            decoration: InputDecoration(
-              hintText: hint ?? '0.00',
-              hintStyle: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.getTextMuted(isDark),
-              ),
-              suffixText: suffix,
-              suffixStyle: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.getTextMuted(isDark),
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.all(AppSpacing.md),
-            ),
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.getTextPrimary(isDark),
-            ),
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.getTextPrimary(isDark),
           ),
         ),
       ],
@@ -475,8 +436,10 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
               right: percentage == percentages.last ? 0 : AppSpacing.sm,
             ),
             child: GestureDetector(
-              onTap: () => _setPercentage(percentage, currentPrice),
-              child: Container(
+              onTap: () =>
+                  setState(() => _setPercentage(percentage, currentPrice)),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
                 padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                 decoration: BoxDecoration(
                   color: isSelected
@@ -510,11 +473,7 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
   }
 
   Widget _buildSummary(bool isDark, TradingPairLoaded state) {
-    final currentPrice = state.tradingPair.currentPrice;
-    final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final price = _tradeType == TradeType.market
-        ? currentPrice
-        : (double.tryParse(_priceController.text) ?? currentPrice);
+    final price = double.tryParse(_priceController.text) ?? 0.0;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -527,7 +486,9 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
         children: [
           _buildSummaryRow(
             'Available Balance:',
-            '\${_availableBalance.toStringAsFixed(2)}',
+            _isBuySelected
+                ? '\$${_availableQuoteBalance.toStringAsFixed(2)}'
+                : '${_availableBaseBalance.toStringAsFixed(6)} ${state.tradingPair.baseAsset}',
             isDark,
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -539,28 +500,28 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
           const SizedBox(height: AppSpacing.sm),
           _buildSummaryRow(
             'Estimated Price:',
-            '\${price.toStringAsFixed(price >= 1 ? 2 : 4)}',
+            '\$${price.toStringAsFixed(price >= 1 ? 2 : 4)}',
             isDark,
           ),
           const SizedBox(height: AppSpacing.sm),
           _buildSummaryRow(
             'Estimated Total:',
-            '\${_estimatedTotal.toStringAsFixed(2)}',
+            '\$${_estimatedTotal.toStringAsFixed(2)}',
             isDark,
           ),
           const SizedBox(height: AppSpacing.sm),
           _buildSummaryRow(
             'Trading Fee (0.1%):',
-            '\${_estimatedFee.toStringAsFixed(2)}',
+            '\$${_estimatedFee.toStringAsFixed(4)}',
             isDark,
             isHighlighted: true,
           ),
-          const Divider(),
+          const Divider(height: AppSpacing.lg, thickness: 1),
           _buildSummaryRow(
-            'You will ${_isBuySelected ? 'receive' : 'pay'}:',
+            _isBuySelected ? 'You will receive:' : 'You will pay:',
             _isBuySelected
-                ? '≈ ${(amount / price).toStringAsFixed(4)} ${state.tradingPair.baseAsset}'
-                : '\${(_estimatedTotal + _estimatedFee).toStringAsFixed(2)}',
+                ? '≈ ${_receiveAmount.toStringAsFixed(6)} ${state.tradingPair.baseAsset}'
+                : '≈ \$${_estimatedTotal.toStringAsFixed(2)}',
             isDark,
             isBold: true,
           ),
@@ -587,7 +548,7 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
         ),
         Text(
           value,
-          style: AppTextStyles.bodySmall.copyWith(
+          style: AppTextStyles.bodyMedium.copyWith(
             color: isHighlighted
                 ? AppColors.getWarning(isDark)
                 : AppColors.getTextPrimary(isDark),
@@ -599,10 +560,7 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
   }
 
   Widget _buildTradeButton(bool isDark, TradingPairLoaded state) {
-    final isEnabled =
-        _amountController.text.isNotEmpty &&
-        double.tryParse(_amountController.text) != null &&
-        double.parse(_amountController.text) > 0;
+    final isEnabled = _estimatedTotal > 0;
 
     return SizedBox(
       width: double.infinity,
@@ -612,7 +570,7 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
           backgroundColor: _isBuySelected
               ? AppColors.getBuyGreen(isDark)
               : AppColors.getSellRed(isDark),
-          disabledBackgroundColor: AppColors.getTextMuted(isDark),
+          disabledBackgroundColor: AppColors.getSurfaceColor(isDark),
           padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppBorderRadius.md),
@@ -633,35 +591,12 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
   Widget _buildLoadingState(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            height: 60,
-            decoration: BoxDecoration(
-              color: AppColors.getSurfaceColor(isDark),
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              border: Border.all(color: AppColors.getBorderSecondary(isDark)),
-            ),
-            child: const Center(child: CircularProgressIndicator()),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Loading trade data...',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.getTextSecondary(isDark),
-            ),
-          ),
-        ],
-      ),
+      child: const Center(child: CircularProgressIndicator()),
     );
   }
 
   void _executeTrade(TradingPairLoaded state) {
-    final currentPrice = state.tradingPair.currentPrice;
-    final price = _tradeType == TradeType.market
-        ? currentPrice
-        : (double.tryParse(_priceController.text) ?? currentPrice);
+    final price = double.tryParse(_priceController.text) ?? 0.0;
 
     showDialog(
       context: context,
@@ -677,9 +612,13 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
             ),
             Text('Side: ${_isBuySelected ? 'Buy' : 'Sell'}'),
             Text('Amount: ${_amountController.text}'),
-            Text('Price: \${price.toStringAsFixed(price >= 1 ? 2 : 4)}'),
-            Text('Estimated Total: \${_estimatedTotal.toStringAsFixed(2)}'),
-            Text('Fee: \${_estimatedFee.toStringAsFixed(2)}'),
+            Text('Price: \$${price.toStringAsFixed(price >= 1 ? 2 : 4)}'),
+            const Divider(),
+            Text(
+              'Estimated Total: \$${_estimatedTotal.toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text('Fee: \$${_estimatedFee.toStringAsFixed(4)}'),
           ],
         ),
         actions: [
@@ -717,12 +656,9 @@ class _QuickTradeWidgetState extends State<QuickTradeWidget>
       ),
     );
 
-    // Reset form
     _amountController.clear();
     setState(() {
       _selectedPercentage = '';
-      _estimatedTotal = 0.0;
-      _estimatedFee = 0.0;
     });
   }
 }

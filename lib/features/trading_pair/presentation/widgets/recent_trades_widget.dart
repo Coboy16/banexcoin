@@ -260,7 +260,6 @@ class RecentTradesWidget extends StatelessWidget {
     final sellVolume = trades
         .where((t) => t.isSell)
         .fold(0.0, (sum, t) => sum + t.quoteQuantity);
-    final totalVolume = buyVolume + sellVolume;
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),

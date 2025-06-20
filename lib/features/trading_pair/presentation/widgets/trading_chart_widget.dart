@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
@@ -37,6 +38,8 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -59,15 +62,18 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildHeader(isDark, state.isStreaming),
+                    _buildHeader(isDark, state.isStreaming, isDesktop),
                     const Divider(height: 1),
-                    SizedBox(height: 400, child: _buildChart(isDark, state)),
+                    SizedBox(
+                      height: 400,
+                      child: _buildChart(isDark, state, isDesktop),
+                    ),
                     if (_showVolume)
                       SizedBox(
                         height: 100,
                         child: _buildVolumeChart(isDark, state),
                       ),
-                    _buildControls(isDark),
+                    _buildControls(isDark, isDesktop),
                   ],
                 ),
               );
@@ -80,9 +86,7 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
   }
 
   void _updateChartData(TradingPairLoaded state) {
-    if (state.klines.isEmpty) {
-      return;
-    }
+    if (state.klines.isEmpty) return;
 
     bool isFullRefresh = state.klines.length > 2;
 
@@ -98,15 +102,11 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     }
 
     if (_localKlines.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _isTimeframeLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isTimeframeLoading = false);
       return;
     }
 
-    final List<KlineEntity> klinesForChart = _localKlines.values.toList();
+    final klinesForChart = _localKlines.values.toList();
     final newPriceData = <FlSpot>[];
     final newVolumeData = <FlSpot>[];
 
@@ -117,11 +117,7 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     }
 
     if (newPriceData.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _isTimeframeLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isTimeframeLoading = false);
       return;
     }
 
@@ -143,73 +139,98 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     }
   }
 
-  Widget _buildHeader(bool isDark, bool isStreaming) {
-    return Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Row(
-        children: [
-          Icon(
-            LucideIcons.chartCandlestick,
-            color: AppColors.getPrimaryBlue(isDark),
-            size: 20,
+  // =================================================================
+  // INICIO MODIFICACIÓN: Cabecera responsiva
+  // =================================================================
+  Widget _buildHeader(bool isDark, bool isStreaming, bool isDesktop) {
+    final titleWidget = Row(
+      children: [
+        Icon(
+          LucideIcons.chartCandlestick,
+          color: AppColors.getPrimaryBlue(isDark),
+          size: 20,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          'Price Chart',
+          style: AppTextStyles.h3.copyWith(
+            color: AppColors.getTextPrimary(isDark),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Text(
-            'Price Chart',
-            style: AppTextStyles.h3.copyWith(
-              color: AppColors.getTextPrimary(isDark),
-            ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
           ),
-          const SizedBox(width: AppSpacing.md),
-          Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
-            ),
-            decoration: BoxDecoration(
+          decoration: BoxDecoration(
+            color: isStreaming
+                ? AppColors.getSuccess(isDark).withOpacity(0.1)
+                : AppColors.getWarning(isDark).withOpacity(0.1),
+            borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+            border: Border.all(
               color: isStreaming
-                  ? AppColors.getSuccess(isDark).withOpacity(0.1)
-                  : AppColors.getWarning(isDark).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-              border: Border.all(
-                color: isStreaming
-                    ? AppColors.getSuccess(isDark).withOpacity(0.3)
-                    : AppColors.getWarning(isDark).withOpacity(0.3),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: isStreaming
-                        ? AppColors.getSuccess(isDark)
-                        : AppColors.getWarning(isDark),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                Text(
-                  isStreaming ? 'LIVE' : 'OFFLINE',
-                  style: AppTextStyles.caption.copyWith(
-                    color: isStreaming
-                        ? AppColors.getSuccess(isDark)
-                        : AppColors.getWarning(isDark),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
+                  ? AppColors.getSuccess(isDark).withOpacity(0.3)
+                  : AppColors.getWarning(isDark).withOpacity(0.3),
             ),
           ),
-          const Spacer(),
-          _buildChartControls(isDark),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: isStreaming
+                      ? AppColors.getSuccess(isDark)
+                      : AppColors.getWarning(isDark),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                isStreaming ? 'LIVE' : 'OFFLINE',
+                style: AppTextStyles.caption.copyWith(
+                  color: isStreaming
+                      ? AppColors.getSuccess(isDark)
+                      : AppColors.getWarning(isDark),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+      ],
     );
+
+    if (isDesktop) {
+      // VISTA WEB/DESKTOP: Fila única
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Row(
+          children: [
+            Expanded(child: titleWidget),
+            _buildChartControls(isDark),
+          ],
+        ),
+      );
+    } else {
+      // VISTA MÓVIL: Columna
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            titleWidget,
+            const SizedBox(height: AppSpacing.md),
+            _buildChartControls(isDark),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildChartControls(bool isDark) {
@@ -324,16 +345,14 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     switch (type) {
       case ChartTypeTwo.line:
         return LucideIcons.chartLine;
-
       case ChartTypeTwo.area:
         return LucideIcons.chartArea;
     }
   }
 
-  Widget _buildChart(bool isDark, TradingPairLoaded state) {
-    if (_isTimeframeLoading) {
+  Widget _buildChart(bool isDark, TradingPairLoaded state, bool isDesktop) {
+    if (_isTimeframeLoading)
       return const Center(child: CircularProgressIndicator());
-    }
 
     if (_priceData.isEmpty) {
       return Center(
@@ -357,25 +376,39 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
       );
     }
 
-    return Padding(
+    final chartWidget = Padding(
       padding: const EdgeInsets.all(AppSpacing.md),
       child: _selectedChartType == ChartTypeTwo.line
-          ? _buildLineChart(isDark, state)
+          ? _buildLineChart(isDark, state, isDesktop)
           : _selectedChartType == ChartTypeTwo.area
-          ? _buildAreaChart(isDark, state)
-          : _buildCandlestickChart(isDark, state),
+          ? _buildAreaChart(isDark, state, isDesktop)
+          : _buildCandlestickChart(isDark, state, isDesktop),
     );
+
+    if (isDesktop) {
+      return chartWidget;
+    } else {
+      // VISTA MÓVIL: Añadir InteractiveViewer para zoom y pan
+      return InteractiveViewer(
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        minScale: 0.5,
+        maxScale: 4.0,
+        child: chartWidget,
+      );
+    }
   }
 
-  Widget _buildLineChart(bool isDark, TradingPairLoaded state) {
+  Widget _buildLineChart(bool isDark, TradingPairLoaded state, bool isDesktop) {
     final isPositive =
         _priceData.isNotEmpty && _priceData.last.y > _priceData.first.y;
-
     final priceRange = _maxPrice - _minPrice;
     final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
 
     final double lastX = _priceData.isNotEmpty ? _priceData.last.x : 0.0;
-    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    // MODIFICACIÓN: Rango del eje X diferente para móvil (zoom) y web (scroll)
+    final double minX = isDesktop
+        ? max(0.0, lastX - (_kVisibleCandleCount - 1))
+        : 0.0;
     final double maxX = lastX;
 
     return LineChart(
@@ -416,15 +449,17 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     );
   }
 
-  Widget _buildAreaChart(bool isDark, TradingPairLoaded state) {
+  Widget _buildAreaChart(bool isDark, TradingPairLoaded state, bool isDesktop) {
     final isPositive =
         _priceData.isNotEmpty && _priceData.last.y > _priceData.first.y;
-
     final priceRange = _maxPrice - _minPrice;
     final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
 
     final double lastX = _priceData.isNotEmpty ? _priceData.last.x : 0.0;
-    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    // MODIFICACIÓN: Rango del eje X diferente para móvil (zoom) y web (scroll)
+    final double minX = isDesktop
+        ? max(0.0, lastX - (_kVisibleCandleCount - 1))
+        : 0.0;
     final double maxX = lastX;
 
     return LineChart(
@@ -487,10 +522,13 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     );
   }
 
-  Widget _buildCandlestickChart(bool isDark, TradingPairLoaded state) {
+  Widget _buildCandlestickChart(
+    bool isDark,
+    TradingPairLoaded state,
+    bool isDesktop,
+  ) {
     final klines = _localKlines.values.toList();
     List<CandleStickChartBarData> candleBars = [];
-
     for (int i = 0; i < klines.length; i++) {
       final kline = klines[i];
       candleBars.add(
@@ -505,14 +543,16 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
         ),
       );
     }
-
     final priceRange = _maxPrice - _minPrice;
     final horizontalInterval = priceRange > 0 ? priceRange / 6 : 1.0;
 
     final double lastX = klines.isNotEmpty
         ? (klines.length - 1).toDouble()
         : 0.0;
-    final double minX = max(0.0, lastX - (_kVisibleCandleCount - 1));
+    // MODIFICACIÓN: Rango del eje X diferente para móvil (zoom) y web (scroll)
+    final double minX = isDesktop
+        ? max(0.0, lastX - (_kVisibleCandleCount - 1))
+        : 0.0;
     final double maxX = lastX;
 
     return CandleStickChart(
@@ -545,11 +585,8 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
   LineChartBarData _buildMovingAverageLine(bool isDark) {
     List<FlSpot> maData = [];
     const period = 20;
-
-    if (_priceData.length < period) {
+    if (_priceData.length < period)
       return LineChartBarData(spots: [], color: Colors.transparent);
-    }
-
     for (int i = period - 1; i < _priceData.length; i++) {
       double sum = 0;
       for (int j = i - period + 1; j <= i; j++) {
@@ -558,7 +595,6 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
       double ma = sum / period;
       maData.add(FlSpot(_priceData[i].x, ma));
     }
-
     return LineChartBarData(
       spots: maData,
       isCurved: true,
@@ -574,10 +610,8 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
   FlTitlesData _buildTitlesData(bool isDark, TradingPairLoaded state) {
     final dataLength = _priceData.length;
     final interval = dataLength > 10 ? (dataLength / 5).floorToDouble() : 2.0;
-
     final priceRange = _maxPrice - _minPrice;
     final priceInterval = priceRange > 0 ? priceRange / 5 : 1.0;
-
     return FlTitlesData(
       show: true,
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -587,14 +621,12 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
           showTitles: true,
           reservedSize: 30,
           interval: interval,
-          getTitlesWidget: (value, meta) {
-            return Text(
-              _formatTimeLabel(value.toInt()),
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.getTextMuted(isDark),
-              ),
-            );
-          },
+          getTitlesWidget: (value, meta) => Text(
+            _formatTimeLabel(value.toInt()),
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
         ),
       ),
       leftTitles: AxisTitles(
@@ -602,14 +634,12 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
           showTitles: true,
           interval: priceInterval,
           reservedSize: 80,
-          getTitlesWidget: (value, meta) {
-            return Text(
-              '\$${value.toStringAsFixed(value >= 1000 ? 0 : 2)}',
-              style: AppTextStyles.caption.copyWith(
-                color: AppColors.getTextMuted(isDark),
-              ),
-            );
-          },
+          getTitlesWidget: (value, meta) => Text(
+            '\$${value.toStringAsFixed(value >= 1000 ? 0 : 2)}',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
         ),
       ),
     );
@@ -619,18 +649,18 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
     return LineTouchData(
       touchTooltipData: LineTouchTooltipData(
         tooltipBorder: BorderSide(color: AppColors.getBorderPrimary(isDark)),
-        getTooltipItems: (touchedSpots) {
-          return touchedSpots.map((spot) {
-            return LineTooltipItem(
-              '\$${spot.y.toStringAsFixed(spot.y >= 1 ? 2 : 4)}',
-              TextStyle(
-                color: AppColors.getTextPrimary(isDark),
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+        getTooltipItems: (touchedSpots) => touchedSpots
+            .map(
+              (spot) => LineTooltipItem(
+                '\$${spot.y.toStringAsFixed(spot.y >= 1 ? 2 : 4)}',
+                TextStyle(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
-            );
-          }).toList();
-        },
+            )
+            .toList(),
       ),
       handleBuiltInTouches: true,
     );
@@ -638,10 +668,8 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
 
   String _formatTimeLabel(int index) {
     if (index < 0 || index >= _localKlines.length) return '';
-
     final kline = _localKlines.values.elementAt(index);
     final time = kline.openTime;
-
     switch (_selectedTimeframe) {
       case ChartTimeframeTwo.m15:
       case ChartTimeframeTwo.h1:
@@ -655,15 +683,11 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
   }
 
   Widget _buildVolumeChart(bool isDark, TradingPairLoaded state) {
-    if (_volumeData.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
+    if (_volumeData.isEmpty) return const SizedBox.shrink();
     final maxVolume = _volumeData
         .map((e) => e.y)
         .reduce((a, b) => a > b ? a : b);
     final volumeInterval = maxVolume > 0 ? maxVolume / 3 : 1000000.0;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
       child: BarChart(
@@ -675,15 +699,14 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
               tooltipBorder: BorderSide(
                 color: AppColors.getBorderPrimary(isDark),
               ),
-              getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                return BarTooltipItem(
-                  'Volume: ${_formatVolume(rod.toY)}',
-                  TextStyle(
-                    color: AppColors.getTextPrimary(isDark),
-                    fontWeight: FontWeight.w500,
+              getTooltipItem: (group, groupIndex, rod, rodIndex) =>
+                  BarTooltipItem(
+                    'Volume: ${_formatVolume(rod.toY)}',
+                    TextStyle(
+                      color: AppColors.getTextPrimary(isDark),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                );
-              },
             ),
           ),
           titlesData: const FlTitlesData(show: false),
@@ -695,7 +718,6 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
                 index > 0 &&
                 index < _priceData.length &&
                 _priceData[index].y > _priceData[index - 1].y;
-
             return BarChartGroupData(
               x: index,
               barRods: [
@@ -728,17 +750,59 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
   }
 
   String _formatVolume(double volume) {
-    if (volume >= 1000000000) {
+    if (volume >= 1000000000)
       return '${(volume / 1000000000).toStringAsFixed(1)}B';
-    } else if (volume >= 1000000) {
-      return '${(volume / 1000000).toStringAsFixed(1)}M';
-    } else if (volume >= 1000) {
-      return '${(volume / 1000).toStringAsFixed(1)}K';
-    }
+    if (volume >= 1000000) return '${(volume / 1000000).toStringAsFixed(1)}M';
+    if (volume >= 1000) return '${(volume / 1000).toStringAsFixed(1)}K';
     return volume.toStringAsFixed(0);
   }
 
-  Widget _buildControls(bool isDark) {
+  Widget _buildControls(bool isDark, bool isDesktop) {
+    final timeframeButtons = ChartTimeframeTwo.values.map((timeframe) {
+      final isSelected = timeframe == _selectedTimeframe;
+      return Padding(
+        padding: const EdgeInsets.only(right: AppSpacing.sm),
+        child: GestureDetector(
+          onTap: () {
+            if (_isTimeframeLoading) return;
+            setState(() {
+              _selectedTimeframe = timeframe;
+              _isTimeframeLoading = true;
+            });
+            context.read<TradingPairBloc>().add(
+              ChangeKlineInterval(interval: _getTimeframeInterval(timeframe)),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? AppColors.getPrimaryBlue(isDark)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              border: Border.all(
+                color: isSelected
+                    ? AppColors.getPrimaryBlue(isDark)
+                    : AppColors.getBorderSecondary(isDark),
+              ),
+            ),
+            child: Text(
+              _getTimeframeLabel(timeframe),
+              style: AppTextStyles.bodySmall.copyWith(
+                color: isSelected
+                    ? Colors.white
+                    : AppColors.getTextSecondary(isDark),
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -746,67 +810,40 @@ class _TradingChartTwoWidgetState extends State<TradingChartTwoWidget> {
           top: BorderSide(color: AppColors.getBorderPrimary(isDark)),
         ),
       ),
-      child: Row(
-        children: [
-          Text(
-            'Timeframe:',
-            style: AppTextStyles.labelMedium.copyWith(
-              color: AppColors.getTextSecondary(isDark),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.md),
-          ...ChartTimeframeTwo.values.map((timeframe) {
-            final isSelected = timeframe == _selectedTimeframe;
-            return Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: GestureDetector(
-                onTap: () {
-                  if (_isTimeframeLoading) return;
-                  setState(() {
-                    _selectedTimeframe = timeframe;
-                    _isTimeframeLoading = true;
-                  });
-                  context.read<TradingPairBloc>().add(
-                    ChangeKlineInterval(
-                      interval: _getTimeframeInterval(timeframe),
-                    ),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.sm,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.getPrimaryBlue(isDark)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                    border: Border.all(
-                      color: isSelected
-                          ? AppColors.getPrimaryBlue(isDark)
-                          : AppColors.getBorderSecondary(isDark),
-                    ),
-                  ),
-                  child: Text(
-                    _getTimeframeLabel(timeframe),
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: isSelected
-                          ? Colors.white
-                          : AppColors.getTextSecondary(isDark),
-                      fontWeight: isSelected
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
+      child: isDesktop
+          ? Row(
+              children: [
+                Text(
+                  'Timeframe:',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.getTextSecondary(isDark),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        ],
-      ),
+                const SizedBox(width: AppSpacing.md),
+                ...timeframeButtons,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Timeframe:',
+                  style: AppTextStyles.labelMedium.copyWith(
+                    color: AppColors.getTextSecondary(isDark),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(children: timeframeButtons),
+                ),
+              ],
+            ),
     );
   }
+  // =================================================================
+  // FIN MODIFICACIÓN
+  // =================================================================
 
   String _getTimeframeLabel(ChartTimeframeTwo timeframe) {
     switch (timeframe) {
@@ -901,6 +938,7 @@ enum ChartTimeframeTwo { m15, h1, h4, d1, w1 }
 
 enum ChartTypeTwo { line, area }
 
+// Placeholder para CandleStickChart
 class CandleStickChart extends StatelessWidget {
   final CandleStickChartData data;
   const CandleStickChart(this.data, {super.key});

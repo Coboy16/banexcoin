@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:responsive_framework/responsive_framework.dart';
 
 import '/features/features.dart';
 import '/core/bloc/blocs.dart';
@@ -13,6 +14,8 @@ class PairStatisticsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -32,14 +35,15 @@ class PairStatisticsWidget extends StatelessWidget {
                   children: [
                     _buildHeader(isDark, state.isStreaming),
                     const SizedBox(height: AppSpacing.lg),
-                    // MODIFICACIÓN: Vuelve a usar una cuadrícula (GridView)
-                    _buildStatisticsGrid(isDark, state),
+                    // MODIFICACIÓN: Pasar 'isDesktop' para renderizar la cuadrícula correcta
+                    _buildStatisticsGrid(isDark, state, isDesktop),
                   ],
                 ),
               );
             }
 
-            return _buildLoadingState(isDark);
+            // MODIFICACIÓN: Pasar 'isDesktop' al estado de carga
+            return _buildLoadingState(isDark, isDesktop);
           },
         );
       },
@@ -110,17 +114,19 @@ class PairStatisticsWidget extends StatelessWidget {
     );
   }
 
-  // MODIFICACIÓN: Se reemplaza la lista por una cuadrícula de 2 columnas.
-  Widget _buildStatisticsGrid(bool isDark, TradingPairLoaded state) {
+  Widget _buildStatisticsGrid(
+    bool isDark,
+    TradingPairLoaded state,
+    bool isDesktop,
+  ) {
     final statistics = _generateStatistics(state);
 
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, // Se asegura de que siempre haya 2 columnas
-        childAspectRatio:
-            4.2, // Puedes ajustar esto para cambiar la altura de las tarjetas
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: isDesktop ? 2 : 1,
+        childAspectRatio: isDesktop ? 4.2 : 3.5,
         mainAxisSpacing: AppSpacing.md,
         crossAxisSpacing: AppSpacing.md,
       ),
@@ -223,13 +229,10 @@ class PairStatisticsWidget extends StatelessWidget {
   }
 
   String _formatVolume(double volume) {
-    if (volume >= 1000000000) {
+    if (volume >= 1000000000)
       return '${(volume / 1000000000).toStringAsFixed(2)}B';
-    } else if (volume >= 1000000) {
-      return '${(volume / 1000000).toStringAsFixed(2)}M';
-    } else if (volume >= 1000) {
-      return '${(volume / 1000).toStringAsFixed(2)}K';
-    }
+    if (volume >= 1000000) return '${(volume / 1000000).toStringAsFixed(2)}M';
+    if (volume >= 1000) return '${(volume / 1000).toStringAsFixed(2)}K';
     return volume.toStringAsFixed(2);
   }
 
@@ -244,7 +247,10 @@ class PairStatisticsWidget extends StatelessWidget {
     }
   }
 
-  Widget _buildLoadingState(bool isDark) {
+  // =================================================================
+  // INICIO MODIFICACIÓN: Estado de carga responsivo
+  // =================================================================
+  Widget _buildLoadingState(bool isDark, bool isDesktop) {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -271,13 +277,13 @@ class PairStatisticsWidget extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          // MODIFICACIÓN: El estado de carga también usa una cuadrícula de 2 columnas.
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 2.2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              // MODIFICACIÓN: Cambiar el número de columnas y el aspect ratio para móvil
+              crossAxisCount: isDesktop ? 2 : 1,
+              childAspectRatio: isDesktop ? 2.2 : 4.0,
               mainAxisSpacing: AppSpacing.md,
               crossAxisSpacing: AppSpacing.md,
             ),
@@ -352,11 +358,9 @@ class _StatisticCardState extends State<StatisticCard>
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
-
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.02).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
-
     _colorAnimation = ColorTween(
       begin: Colors.transparent,
       end: AppColors.getPrimaryBlue(widget.isDark).withOpacity(0.05),
@@ -416,7 +420,6 @@ class _StatisticCardState extends State<StatisticCard>
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Columna con título y valor
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,7 +483,6 @@ class _StatisticCardState extends State<StatisticCard>
 
   Widget _buildChange() {
     final isPositive = widget.statistic.isPositive ?? false;
-
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.sm,
@@ -530,7 +532,8 @@ class _StatisticCardState extends State<StatisticCard>
       case 'Market Trend':
         if (widget.statistic.isPositive == true) {
           return AppColors.getBuyGreen(widget.isDark);
-        } else if (widget.statistic.isPositive == false) {
+        }
+        if (widget.statistic.isPositive == false) {
           return AppColors.getSellRed(widget.isDark);
         }
         return AppColors.getTextSecondary(widget.isDark);
