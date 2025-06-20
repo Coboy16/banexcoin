@@ -339,7 +339,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
   bool _isHovered = false;
   late AnimationController _flashController;
   late Animation<Color?> _flashAnimation;
-  String _previousPrice = '';
 
   @override
   void initState() {
@@ -348,7 +347,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-    _previousPrice = widget.ticker.lastPrice;
     _updateFlashAnimation();
   }
 
@@ -362,7 +360,6 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
       _flashController.forward().then((_) {
         _flashController.reverse();
       });
-      _previousPrice = oldWidget.ticker.lastPrice;
     }
   }
 
@@ -497,7 +494,7 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
   Widget _buildPrice() {
     return Expanded(
       child: Text(
-        '\${widget.ticker.formattedPrice}',
+        _formatPrice(widget.ticker.lastPrice),
         style: AppTextStyles.priceMedium.copyWith(
           color: AppColors.getTextPrimary(widget.isDark),
           fontWeight: FontWeight.w600,
@@ -576,6 +573,25 @@ class _TradingPairRealRowState extends State<TradingPairRealRow>
       return '$base/ETH';
     }
     return symbol;
+  }
+
+  String _formatPrice(String price) {
+    try {
+      final value = double.parse(price);
+
+      // Formatear según el rango del precio
+      if (value >= 1000) {
+        return value.toStringAsFixed(2);
+      } else if (value >= 1) {
+        return value.toStringAsFixed(4);
+      } else if (value >= 0.01) {
+        return value.toStringAsFixed(6);
+      } else {
+        return value.toStringAsFixed(8);
+      }
+    } catch (e) {
+      return price;
+    }
   }
 
   String _formatVolume(String volume) {

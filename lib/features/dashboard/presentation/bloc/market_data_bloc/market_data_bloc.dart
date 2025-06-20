@@ -68,6 +68,12 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     on<ToggleStreams>(_onToggleStreams);
     on<DisposeMarketData>(_onDisposeMarketData);
 
+    // Evento interno para actualizaciones de streams
+    on<_InternalTickerUpdate>(_onInternalTickerUpdate);
+    on<_InternalMiniTickerUpdate>(_onInternalMiniTickerUpdate);
+    on<_InternalDepthUpdate>(_onInternalDepthUpdate);
+    on<_InternalConnectionError>(_onInternalConnectionError);
+
     // Iniciar timers periódicos
     _startPeriodicTasks();
   }
@@ -147,23 +153,17 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
       }
 
       _connectionStatuses[symbol] = ConnectionStatus.connecting;
-      _emitUpdatedState(emit);
+      _emitCurrentState(emit);
 
-      // Crear suscripción al stream
+      // Crear suscripción al stream usando eventos internos
       final stream = _getTickerStreamUseCase.execute(symbol);
       final subscription = stream.listen(
         (ticker) {
-          _tickers[symbol] = ticker;
-          _lastUpdates[symbol] = DateTime.now();
-          _connectionStatuses[symbol] = ConnectionStatus.connected;
-
-          if (_streamsEnabled) {
-            _emitUpdatedState(emit);
-          }
+          // Usar evento interno en lugar de emit directo
+          add(_InternalTickerUpdate(ticker));
         },
         onError: (error) {
-          _connectionStatuses[symbol] = ConnectionStatus.error;
-          add(HandleConnectionError(error: error.toString(), symbol: symbol));
+          add(_InternalConnectionError(error.toString(), symbol));
         },
       );
 
@@ -179,6 +179,73 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     }
   }
 
+  /// Maneja actualizaciones internas de ticker
+  Future<void> _onInternalTickerUpdate(
+    _InternalTickerUpdate event,
+    Emitter<MarketDataState> emit,
+  ) async {
+    final ticker = event.ticker;
+    _tickers[ticker.symbol] = ticker;
+    _lastUpdates[ticker.symbol] = DateTime.now();
+    _connectionStatuses[ticker.symbol] = ConnectionStatus.connected;
+
+    if (_streamsEnabled) {
+      _emitCurrentState(emit);
+    }
+  }
+
+  /// Maneja actualizaciones internas de mini ticker
+  Future<void> _onInternalMiniTickerUpdate(
+    _InternalMiniTickerUpdate event,
+    Emitter<MarketDataState> emit,
+  ) async {
+    final miniTicker = event.miniTicker;
+    _miniTickers[miniTicker.symbol] = miniTicker;
+    _lastUpdates[miniTicker.symbol] = DateTime.now();
+    _connectionStatuses[miniTicker.symbol] = ConnectionStatus.connected;
+
+    if (_streamsEnabled) {
+      _emitCurrentState(emit);
+    }
+  }
+
+  /// Maneja actualizaciones internas de depth
+  Future<void> _onInternalDepthUpdate(
+    _InternalDepthUpdate event,
+    Emitter<MarketDataState> emit,
+  ) async {
+    // final depth = event.depth;
+    // _orderBooks[depth.symbol] = depth;
+    // _lastUpdates[depth.symbol] = DateTime.now();
+    // _connectionStatuses[depth.symbol] = ConnectionStatus.connected;
+
+    if (_streamsEnabled) {
+      _emitCurrentState(emit);
+    }
+  }
+
+  /// Maneja errores internos de conexión
+  Future<void> _onInternalConnectionError(
+    _InternalConnectionError event,
+    Emitter<MarketDataState> emit,
+  ) async {
+    if (event.symbol != null) {
+      _connectionStatuses[event.symbol!] = ConnectionStatus.error;
+
+      // Intentar reconectar después de un delay
+      Timer(const Duration(seconds: 5), () {
+        if (event.symbol != null) {
+          _connectionStatuses[event.symbol!] = ConnectionStatus.reconnecting;
+          add(SubscribeToTicker(event.symbol!));
+        }
+      });
+    }
+
+    emit(
+      MarketDataError.connection(message: event.error, symbol: event.symbol),
+    );
+  }
+
   /// Desuscribe de stream de ticker
   Future<void> _onUnsubscribeFromTicker(
     UnsubscribeFromTicker event,
@@ -190,7 +257,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     _tickerSubscriptions.remove(symbol);
     _connectionStatuses[symbol] = ConnectionStatus.disconnected;
 
-    _emitUpdatedState(emit);
+    _emitCurrentState(emit);
   }
 
   /// Suscribe a streams de mini ticker para múltiples símbolos
@@ -218,24 +285,17 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
 
         final subscription = stream.listen(
           (miniTicker) {
-            _miniTickers[symbol] = miniTicker;
-            _lastUpdates[symbol] = DateTime.now();
-            _connectionStatuses[symbol] = ConnectionStatus.connected;
-
-            if (_streamsEnabled) {
-              _emitUpdatedState(emit);
-            }
+            add(_InternalMiniTickerUpdate(miniTicker));
           },
           onError: (error) {
-            _connectionStatuses[symbol] = ConnectionStatus.error;
-            add(HandleConnectionError(error: error.toString(), symbol: symbol));
+            add(_InternalConnectionError(error.toString(), symbol));
           },
         );
 
         _miniTickerSubscriptions[symbol] = subscription;
       }
 
-      _emitUpdatedState(emit);
+      _emitCurrentState(emit);
     } catch (e) {
       emit(
         MarketDataError.api(
@@ -260,23 +320,16 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
       }
 
       _connectionStatuses[symbol] = ConnectionStatus.connecting;
-      _emitUpdatedState(emit);
+      _emitCurrentState(emit);
 
       final stream = _getDepthStreamUseCase.execute(symbol);
 
       final subscription = stream.listen(
         (depth) {
-          _orderBooks[symbol] = depth;
-          _lastUpdates[symbol] = DateTime.now();
-          _connectionStatuses[symbol] = ConnectionStatus.connected;
-
-          if (_streamsEnabled) {
-            _emitUpdatedState(emit);
-          }
+          add(_InternalDepthUpdate(depth));
         },
         onError: (error) {
-          _connectionStatuses[symbol] = ConnectionStatus.error;
-          add(HandleConnectionError(error: error.toString(), symbol: symbol));
+          add(_InternalConnectionError(error.toString(), symbol));
         },
       );
 
@@ -297,8 +350,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     UpdateStreamConfig event,
     Emitter<MarketDataState> emit,
   ) async {
-    // Por ahora solo mantenemos el estado, podrían agregarse más configuraciones
-    _emitUpdatedState(emit);
+    _emitCurrentState(emit);
   }
 
   /// Refresca datos iniciales
@@ -405,9 +457,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
         currentState.getTopGainers(limit: event.topCount);
         currentState.getTopLosers(limit: event.topCount);
 
-        // Podrías emitir un evento específico o actualizar el estado
-        // Por ahora solo refrescamos el estado actual
-        _emitUpdatedState(emit);
+        _emitCurrentState(emit);
       }
     } catch (e) {
       debugPrint('Error cargando top movers: $e');
@@ -420,8 +470,6 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     Emitter<MarketDataState> emit,
   ) async {
     try {
-      // Implementar búsqueda de símbolos
-      // Por ahora, simplemente agregamos el símbolo si es válido
       final query = event.query.trim().toUpperCase();
       if (query.length >= 6) {
         add(AddToWatchlist(query));
@@ -446,7 +494,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
         add(SubscribeToTicker(symbol));
       }
 
-      _emitUpdatedState(emit);
+      _emitCurrentState(emit);
     }
   }
 
@@ -467,7 +515,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
       }
     }
 
-    _emitUpdatedState(emit);
+    _emitCurrentState(emit);
   }
 
   /// Maneja errores de conexión
@@ -498,8 +546,7 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     Emitter<MarketDataState> emit,
   ) async {
     if (state is MarketDataError) {
-      // Volver al último estado válido o inicial
-      _emitUpdatedState(emit);
+      _emitCurrentState(emit);
     }
   }
 
@@ -533,8 +580,8 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     emit(MarketDataInitial());
   }
 
-  /// Emite estado actualizado basado en datos internos
-  void _emitUpdatedState(Emitter<MarketDataState> emit) {
+  /// Emite estado actual de forma segura
+  void _emitCurrentState(Emitter<MarketDataState> emit) {
     if (state is MarketDataLoaded) {
       final currentState = state as MarketDataLoaded;
       emit(
@@ -670,4 +717,42 @@ class MarketDataBloc extends Bloc<MarketDataEvent, MarketDataState> {
     await _repository.dispose();
     return super.close();
   }
+}
+
+// Eventos internos para manejar actualizaciones de streams
+class _InternalTickerUpdate extends MarketDataEvent {
+  final TickerEntity ticker;
+
+  const _InternalTickerUpdate(this.ticker);
+
+  @override
+  List<Object> get props => [ticker];
+}
+
+class _InternalMiniTickerUpdate extends MarketDataEvent {
+  final MiniTickerEntity miniTicker;
+
+  const _InternalMiniTickerUpdate(this.miniTicker);
+
+  @override
+  List<Object> get props => [miniTicker];
+}
+
+class _InternalDepthUpdate extends MarketDataEvent {
+  final DepthEntity depth;
+
+  const _InternalDepthUpdate(this.depth);
+
+  @override
+  List<Object> get props => [depth];
+}
+
+class _InternalConnectionError extends MarketDataEvent {
+  final String error;
+  final String? symbol;
+
+  const _InternalConnectionError(this.error, this.symbol);
+
+  @override
+  List<Object> get props => [error, symbol ?? ''];
 }
