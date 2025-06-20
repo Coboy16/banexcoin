@@ -42,7 +42,7 @@ abstract class TradingPairRepository {
   Future<bool> isValidSymbol(String symbol);
 
   /// Obtiene información básica del símbolo
-  Future<SymbolInfo> getSymbolInfo(String symbol);
+  Future<SymbolInfoTraiding> getSymbolInfo(String symbol);
 
   /// Libera recursos
   Future<void> dispose();
