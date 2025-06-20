@@ -1,130 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
-import 'dart:async';
-import 'dart:math';
 
+import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
-class TradingPairsWidget extends StatefulWidget {
-  const TradingPairsWidget({super.key});
+class TradingPairsWidget extends StatelessWidget {
+  final MarketDataState? marketState;
 
-  @override
-  State<TradingPairsWidget> createState() => _TradingPairsWidgetState();
-}
-
-class _TradingPairsWidgetState extends State<TradingPairsWidget> {
-  late Timer _priceUpdateTimer;
-  final Random _random = Random();
-
-  final List<TradingPairData> _pairs = [
-    TradingPairData(
-      symbol: 'BTC/USDT',
-      basePrice: 43250.00,
-      currentPrice: 43250.00,
-      change: '+2.5%',
-      changeAmount: '+1,055.50',
-      volume: '1.2B',
-      isPositive: true,
-      icon: LucideIcons.bitcoin,
-      marketCap: '847.2B',
-      high24h: 44120.00,
-      low24h: 42180.00,
-    ),
-    TradingPairData(
-      symbol: 'ETH/USDT',
-      basePrice: 2650.00,
-      currentPrice: 2650.00,
-      change: '-1.2%',
-      changeAmount: '-32.15',
-      volume: '850M',
-      isPositive: false,
-      icon: LucideIcons.hexagon,
-      marketCap: '318.5B',
-      high24h: 2720.00,
-      low24h: 2580.00,
-    ),
-    TradingPairData(
-      symbol: 'BNB/USDT',
-      basePrice: 315.50,
-      currentPrice: 315.50,
-      change: '+4.7%',
-      changeAmount: '+14.25',
-      volume: '420M',
-      isPositive: true,
-      icon: LucideIcons.triangle,
-      marketCap: '48.3B',
-      high24h: 325.80,
-      low24h: 301.20,
-    ),
-    TradingPairData(
-      symbol: 'ADA/USDT',
-      basePrice: 0.4850,
-      currentPrice: 0.4850,
-      change: '+8.3%',
-      changeAmount: '+0.0372',
-      volume: '280M',
-      isPositive: true,
-      icon: LucideIcons.circle,
-      marketCap: '17.1B',
-      high24h: 0.5120,
-      low24h: 0.4580,
-    ),
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    _startPriceUpdates();
-  }
-
-  @override
-  void dispose() {
-    _priceUpdateTimer.cancel();
-    super.dispose();
-  }
-
-  void _startPriceUpdates() {
-    _priceUpdateTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      if (mounted) {
-        setState(() {
-          for (var pair in _pairs) {
-            _updatePairPrice(pair);
-          }
-        });
-      }
-    });
-  }
-
-  void _updatePairPrice(TradingPairData pair) {
-    // Simular cambios de precio reales
-    double changePercent = (_random.nextDouble() - 0.5) * 0.02; // ±1%
-    pair.currentPrice = pair.currentPrice * (1 + changePercent);
-
-    // Actualizar si el cambio es positivo o negativo
-    double totalChange =
-        ((pair.currentPrice - pair.basePrice) / pair.basePrice) * 100;
-    pair.isPositive = totalChange >= 0;
-
-    // Actualizar el porcentaje de cambio
-    pair.change =
-        '${totalChange >= 0 ? '+' : ''}${totalChange.toStringAsFixed(1)}%';
-
-    // Actualizar el monto del cambio
-    double changeAmount = pair.currentPrice - pair.basePrice;
-    pair.changeAmount =
-        '${changeAmount >= 0 ? '+' : ''}${changeAmount.toStringAsFixed(2)}';
-
-    // Simular volumen cambiante
-    double volumeMultiplier = 0.95 + (_random.nextDouble() * 0.1); // 95% - 105%
-    String volumeStr = pair.volume;
-    double volumeValue = double.parse(
-      volumeStr.replaceAll(RegExp(r'[^\d.]'), ''),
-    );
-    String unit = volumeStr.replaceAll(RegExp(r'[\d.]'), '');
-    pair.volume = '${(volumeValue * volumeMultiplier).toStringAsFixed(1)}$unit';
-  }
+  const TradingPairsWidget({super.key, this.marketState});
 
   @override
   Widget build(BuildContext context) {
@@ -143,13 +28,7 @@ class _TradingPairsWidgetState extends State<TradingPairsWidget> {
             children: [
               _buildHeader(isDark),
               _buildTableHeader(isDark),
-              ...(_pairs.map(
-                (pair) => TradingPairRow(
-                  pair: pair,
-                  isDark: isDark,
-                  onTap: () => _navigateToPairDetail(pair),
-                ),
-              )),
+              _buildContent(isDark),
             ],
           ),
         );
@@ -169,25 +48,55 @@ class _TradingPairsWidgetState extends State<TradingPairsWidget> {
             ),
           ),
           const Spacer(),
-          TextButton.icon(
-            onPressed: () {
-              // Navigate to all pairs page
-            },
-            icon: Icon(
-              LucideIcons.externalLink,
-              size: 16,
-              color: AppColors.getPrimaryBlue(isDark),
-            ),
-            label: Text(
-              'View All',
-              style: AppTextStyles.buttonSmall.copyWith(
-                color: AppColors.getPrimaryBlue(isDark),
-              ),
-            ),
-          ),
+          _buildStatusIndicator(isDark),
         ],
       ),
     );
+  }
+
+  Widget _buildStatusIndicator(bool isDark) {
+    if (marketState is MarketDataLoaded) {
+      final state = marketState as MarketDataLoaded;
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: state.isConnected
+              ? AppColors.getBuyGreen(isDark).withOpacity(0.1)
+              : AppColors.getSellRed(isDark).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(
+                color: state.isConnected
+                    ? AppColors.getBuyGreen(isDark)
+                    : AppColors.getSellRed(isDark),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              state.isConnected ? 'Live' : 'Offline',
+              style: AppTextStyles.caption.copyWith(
+                color: state.isConnected
+                    ? AppColors.getBuyGreen(isDark)
+                    : AppColors.getSellRed(isDark),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildTableHeader(bool isDark) {
@@ -245,61 +154,192 @@ class _TradingPairsWidgetState extends State<TradingPairsWidget> {
     );
   }
 
-  void _navigateToPairDetail(TradingPairData pair) {
+  Widget _buildContent(bool isDark) {
+    if (marketState is MarketDataLoading) {
+      return _buildLoadingState(isDark);
+    } else if (marketState is MarketDataLoaded) {
+      return _buildLoadedState(marketState as MarketDataLoaded, isDark);
+    } else if (marketState is MarketDataError) {
+      return _buildErrorState(marketState as MarketDataError, isDark);
+    } else {
+      return _buildInitialState(isDark);
+    }
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: List.generate(
+          4,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Row(
+              children: [
+                _buildShimmer(80, 20, isDark),
+                const Spacer(),
+                _buildShimmer(60, 20, isDark),
+                const SizedBox(width: AppSpacing.md),
+                _buildShimmer(70, 20, isDark),
+                const SizedBox(width: AppSpacing.md),
+                _buildShimmer(50, 20, isDark),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmer(double width, double height, bool isDark) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.getSurfaceColor(isDark),
+        borderRadius: BorderRadius.circular(4),
+      ),
+    );
+  }
+
+  Widget _buildLoadedState(MarketDataLoaded state, bool isDark) {
+    final tickers = state.tickers.values.toList()
+      ..sort((a, b) => a.symbol.compareTo(b.symbol));
+
+    if (tickers.isEmpty) {
+      return _buildEmptyState(isDark);
+    }
+
+    return Column(
+      children: tickers.map((ticker) {
+        final connectionStatus = state.getConnectionStatus(ticker.symbol);
+        return TradingPairRealRow(
+          ticker: ticker,
+          connectionStatus: connectionStatus,
+          isDark: isDark,
+          onTap: () => _navigateToPairDetail(ticker),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildErrorState(MarketDataError error, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.circleAlert,
+            color: AppColors.getError(isDark),
+            size: 48,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Failed to load trading pairs',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.getTextPrimary(isDark),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            error.friendlyMessage,
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.getTextSecondary(isDark),
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (error.isRetryable) ...[
+            const SizedBox(height: AppSpacing.md),
+            ElevatedButton.icon(
+              onPressed: () => _retryConnection(),
+              icon: const Icon(LucideIcons.refreshCw, size: 16),
+              label: const Text('Retry'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.trendingUp,
+            color: AppColors.getTextMuted(isDark),
+            size: 48,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'No trading pairs available',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInitialState(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        children: [
+          Icon(
+            LucideIcons.database,
+            color: AppColors.getTextMuted(isDark),
+            size: 48,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Initialize market data to see trading pairs',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToPairDetail(TickerEntity ticker) {
     // TODO: Navigate to pair detail page
-    debugPrint('Navigate to ${pair.symbol} detail');
+    debugPrint('Navigate to ${ticker.symbol} detail');
+  }
+
+  void _retryConnection() {
+    // TODO: Retry connection logic
+    debugPrint('Retry connection');
   }
 }
 
-class TradingPairData {
-  final String symbol;
-  final double basePrice;
-  double currentPrice;
-  String change;
-  String changeAmount;
-  String volume;
-  bool isPositive;
-  final IconData icon;
-  final String marketCap;
-  final double high24h;
-  final double low24h;
+class TradingPairRealRow extends StatefulWidget {
+  final TickerEntity ticker;
+  final ConnectionStatus connectionStatus;
+  final bool isDark;
+  final VoidCallback onTap;
 
-  TradingPairData({
-    required this.symbol,
-    required this.basePrice,
-    required this.currentPrice,
-    required this.change,
-    required this.changeAmount,
-    required this.volume,
-    required this.isPositive,
-    required this.icon,
-    required this.marketCap,
-    required this.high24h,
-    required this.low24h,
-  });
-}
-
-class TradingPairRow extends StatefulWidget {
-  const TradingPairRow({
+  const TradingPairRealRow({
     super.key,
-    required this.pair,
+    required this.ticker,
+    required this.connectionStatus,
     required this.isDark,
     required this.onTap,
   });
 
-  final TradingPairData pair;
-  final bool isDark;
-  final VoidCallback onTap;
-
   @override
-  State<TradingPairRow> createState() => _TradingPairRowState();
+  State<TradingPairRealRow> createState() => _TradingPairRealRowState();
 }
 
-class _TradingPairRowState extends State<TradingPairRow>
+class _TradingPairRealRowState extends State<TradingPairRealRow>
     with SingleTickerProviderStateMixin {
   bool _isHovered = false;
   late AnimationController _flashController;
   late Animation<Color?> _flashAnimation;
+  String _previousPrice = '';
 
   @override
   void initState() {
@@ -308,25 +348,26 @@ class _TradingPairRowState extends State<TradingPairRow>
       duration: const Duration(milliseconds: 300),
       vsync: this,
     );
-
+    _previousPrice = widget.ticker.lastPrice;
     _updateFlashAnimation();
   }
 
   @override
-  void didUpdateWidget(TradingPairRow oldWidget) {
+  void didUpdateWidget(TradingPairRealRow oldWidget) {
     super.didUpdateWidget(oldWidget);
 
     // Detectar cambio de precio para flash
-    if (oldWidget.pair.currentPrice != widget.pair.currentPrice) {
+    if (oldWidget.ticker.lastPrice != widget.ticker.lastPrice) {
       _updateFlashAnimation();
       _flashController.forward().then((_) {
         _flashController.reverse();
       });
+      _previousPrice = oldWidget.ticker.lastPrice;
     }
   }
 
   void _updateFlashAnimation() {
-    Color flashColor = widget.pair.isPositive
+    Color flashColor = widget.ticker.isPriceChangePositive
         ? AppColors.getBuyGreen(widget.isDark)
         : AppColors.getSellRed(widget.isDark);
 
@@ -392,34 +433,56 @@ class _TradingPairRowState extends State<TradingPairRow>
       flex: 2,
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.getPrimaryBlue(widget.isDark).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-            ),
-            child: Icon(
-              widget.pair.icon,
-              color: AppColors.getPrimaryBlue(widget.isDark),
-              size: 16,
-            ),
+          Stack(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.getPrimaryBlue(
+                    widget.isDark,
+                  ).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                ),
+                child: Icon(
+                  _getSymbolIcon(widget.ticker.symbol),
+                  color: AppColors.getPrimaryBlue(widget.isDark),
+                  size: 16,
+                ),
+              ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: _getConnectionColor(),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: AppColors.getCardBackground(widget.isDark),
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: AppSpacing.sm),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.pair.symbol,
+                _formatSymbol(widget.ticker.symbol),
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.getTextPrimary(widget.isDark),
                   fontWeight: FontWeight.w500,
                 ),
               ),
               Text(
-                widget.pair.changeAmount,
+                widget.ticker.formattedPriceChangePercent,
                 style: AppTextStyles.caption.copyWith(
-                  color: widget.pair.isPositive
+                  color: widget.ticker.isPriceChangePositive
                       ? AppColors.getBuyGreen(widget.isDark)
                       : AppColors.getSellRed(widget.isDark),
                 ),
@@ -434,7 +497,7 @@ class _TradingPairRowState extends State<TradingPairRow>
   Widget _buildPrice() {
     return Expanded(
       child: Text(
-        '\$${widget.pair.currentPrice.toStringAsFixed(widget.pair.currentPrice >= 1 ? 2 : 4)}',
+        '\${widget.ticker.formattedPrice}',
         style: AppTextStyles.priceMedium.copyWith(
           color: AppColors.getTextPrimary(widget.isDark),
           fontWeight: FontWeight.w600,
@@ -455,16 +518,16 @@ class _TradingPairRowState extends State<TradingPairRow>
           ),
           decoration: BoxDecoration(
             color:
-                (widget.pair.isPositive
+                (widget.ticker.isPriceChangePositive
                         ? AppColors.getBuyGreen(widget.isDark)
                         : AppColors.getSellRed(widget.isDark))
                     .withOpacity(0.1),
             borderRadius: BorderRadius.circular(AppBorderRadius.sm),
           ),
           child: Text(
-            widget.pair.change,
+            widget.ticker.formattedPriceChangePercent,
             style: AppTextStyles.bodySmall.copyWith(
-              color: widget.pair.isPositive
+              color: widget.ticker.isPriceChangePositive
                   ? AppColors.getBuyGreen(widget.isDark)
                   : AppColors.getSellRed(widget.isDark),
               fontWeight: FontWeight.w600,
@@ -478,12 +541,71 @@ class _TradingPairRowState extends State<TradingPairRow>
   Widget _buildVolume() {
     return Expanded(
       child: Text(
-        widget.pair.volume,
+        _formatVolume(widget.ticker.quoteVolume),
         style: AppTextStyles.bodyMedium.copyWith(
           color: AppColors.getTextSecondary(widget.isDark),
         ),
         textAlign: TextAlign.right,
       ),
     );
+  }
+
+  IconData _getSymbolIcon(String symbol) {
+    if (symbol.startsWith('BTC')) return LucideIcons.bitcoin;
+    if (symbol.startsWith('ETH')) return LucideIcons.hexagon;
+    if (symbol.startsWith('BNB')) return LucideIcons.triangle;
+    if (symbol.startsWith('ADA')) return LucideIcons.circle;
+    if (symbol.startsWith('SOL')) return LucideIcons.sun;
+    if (symbol.startsWith('DOT')) return LucideIcons.circle;
+    return LucideIcons.coins;
+  }
+
+  String _formatSymbol(String symbol) {
+    // Convertir BTCUSDT a BTC/USDT
+    if (symbol.endsWith('USDT')) {
+      final base = symbol.substring(0, symbol.length - 4);
+      return '$base/USDT';
+    } else if (symbol.endsWith('BUSD')) {
+      final base = symbol.substring(0, symbol.length - 4);
+      return '$base/BUSD';
+    } else if (symbol.endsWith('BTC')) {
+      final base = symbol.substring(0, symbol.length - 3);
+      return '$base/BTC';
+    } else if (symbol.endsWith('ETH')) {
+      final base = symbol.substring(0, symbol.length - 3);
+      return '$base/ETH';
+    }
+    return symbol;
+  }
+
+  String _formatVolume(String volume) {
+    try {
+      final value = double.parse(volume);
+      if (value >= 1000000000) {
+        return '${(value / 1000000000).toStringAsFixed(1)}B';
+      } else if (value >= 1000000) {
+        return '${(value / 1000000).toStringAsFixed(1)}M';
+      } else if (value >= 1000) {
+        return '${(value / 1000).toStringAsFixed(1)}K';
+      } else {
+        return value.toStringAsFixed(2);
+      }
+    } catch (e) {
+      return volume;
+    }
+  }
+
+  Color _getConnectionColor() {
+    switch (widget.connectionStatus) {
+      case ConnectionStatus.connected:
+        return AppColors.getBuyGreen(widget.isDark);
+      case ConnectionStatus.connecting:
+      case ConnectionStatus.reconnecting:
+        return AppColors.getWarning(widget.isDark);
+      case ConnectionStatus.error:
+        return AppColors.getSellRed(widget.isDark);
+      case ConnectionStatus.disconnected:
+        return AppColors.getTextMuted(widget.isDark);
+    }
   }
 }
