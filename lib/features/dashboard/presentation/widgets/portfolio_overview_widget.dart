@@ -269,6 +269,7 @@ class _PortfolioOverviewWidgetState extends State<PortfolioOverviewWidget> {
     ];
 
     if (isDesktop) {
+      // VISTA WEB/DESKTOP (SIN CAMBIOS)
       return Row(
         children: metrics
             .map(
@@ -285,33 +286,92 @@ class _PortfolioOverviewWidgetState extends State<PortfolioOverviewWidget> {
       );
     } else {
       return Column(
-        children: [
-          Row(
+        children: List.generate(metrics.length, (index) {
+          final metric = metrics[index];
+          return Column(
             children: [
-              Expanded(
-                child: PortfolioMetricCard(metric: metrics[0], isDark: isDark),
+              _buildMobileMetricRow(metric, isDark),
+              if (index < metrics.length - 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                  child: Divider(
+                    color: AppColors.getBorderSecondary(isDark),
+                    height: 1,
+                  ),
+                ),
+            ],
+          );
+        }),
+      );
+    }
+  }
+
+  Widget _buildMobileMetricRow(PortfolioMetricData metric, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Lado Izquierdo: Título y Subtítulo
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                metric.title,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.getTextSecondary(isDark),
+                ),
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: PortfolioMetricCard(metric: metrics[1], isDark: isDark),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                metric.subtitle,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.getTextMuted(isDark),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Row(
+          // Lado Derecho: Valor y Cambio
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(
-                child: PortfolioMetricCard(metric: metrics[2], isDark: isDark),
+              AutoSizeText(
+                metric.value,
+                style: AppTextStyles.h4.copyWith(
+                  color: AppColors.getTextPrimary(isDark),
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
               ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: PortfolioMetricCard(metric: metrics[3], isDark: isDark),
+              const SizedBox(height: AppSpacing.xs),
+              Row(
+                children: [
+                  Icon(
+                    metric.isPositive
+                        ? LucideIcons.arrowUp
+                        : LucideIcons.arrowDown,
+                    color: metric.isPositive
+                        ? AppColors.getBuyGreen(isDark)
+                        : AppColors.getSellRed(isDark),
+                    size: 12,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    '${metric.change} (${metric.changePercent})',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: metric.isPositive
+                          ? AppColors.getBuyGreen(isDark)
+                          : AppColors.getSellRed(isDark),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ],
-      );
-    }
+      ),
+    );
   }
 
   String _formatValue(double value) {
@@ -335,7 +395,7 @@ class _PortfolioOverviewWidgetState extends State<PortfolioOverviewWidget> {
   }
 }
 
-// Clases de datos
+// Clases de datos (SIN CAMBIOS)
 class PortfolioPosition {
   final String symbol;
   final double quantity;

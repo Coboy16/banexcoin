@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:toastification/toastification.dart';
+import 'package:responsive_framework/responsive_framework.dart'; // Importación necesaria
 
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
@@ -41,7 +42,7 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
         type: AlertType.below,
         isActive: true,
         createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-        isTriggered: false,
+        isTriggered: true, // Para demostración
       ),
       AlertData(
         id: '3',
@@ -57,6 +58,14 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
 
   @override
   Widget build(BuildContext context) {
+    // =================================================================
+    // INICIO MODIFICACIÓN: Detectar si es escritorio o móvil
+    // =================================================================
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+    // =================================================================
+    // FIN MODIFICACIÓN
+    // =================================================================
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -79,7 +88,8 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                 children: [
                   _buildHeader(isDark, marketState),
                   const Divider(height: 1),
-                  _buildAlertsList(isDark, marketState),
+                  // MODIFICACIÓN: Pasar 'isDesktop' para renderizar la lista correcta
+                  _buildAlertsList(isDark, marketState, isDesktop),
                 ],
               ),
             );
@@ -137,7 +147,6 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
         '${alert.pair} is now ${alert.type == AlertType.above ? 'above' : 'below'} ${_formatPrice(alert.targetPrice)}',
         style: const TextStyle(color: Colors.white),
       ),
-
       alignment: Alignment.topRight,
       autoCloseDuration: const Duration(seconds: 6),
       animationDuration: const Duration(milliseconds: 400),
@@ -148,7 +157,6 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
       closeButtonShowType: CloseButtonShowType.onHover,
       callbacks: ToastificationCallbacks(
         onTap: (toastItem) {
-          // TODO: Navigate to detailed view or trading page
           debugPrint('Alert tapped: ${alert.pair}');
         },
         onCloseButtonTap: (toastItem) {
@@ -273,7 +281,11 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
     );
   }
 
-  Widget _buildAlertsList(bool isDark, MarketDataState marketState) {
+  Widget _buildAlertsList(
+    bool isDark,
+    MarketDataState marketState,
+    bool isDesktop,
+  ) {
     if (_alerts.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -304,15 +316,10 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
       );
     }
 
-    // Ordenar alertas: primero las activadas, luego las triggered, luego por fecha
     final sortedAlerts = List<AlertData>.from(_alerts);
     sortedAlerts.sort((a, b) {
-      if (a.isActive != b.isActive) {
-        return a.isActive ? -1 : 1;
-      }
-      if (a.isTriggered != b.isTriggered) {
-        return a.isTriggered ? -1 : 1;
-      }
+      if (a.isActive != b.isActive) return a.isActive ? -1 : 1;
+      if (a.isTriggered != b.isTriggered) return a.isTriggered ? -1 : 1;
       return b.createdAt.compareTo(a.createdAt);
     });
 
@@ -325,6 +332,8 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
               onToggle: () => _toggleAlert(alert),
               onDelete: () => _deleteAlert(alert),
               onEdit: () => _editAlert(alert),
+              // MODIFICACIÓN: Pasar el flag de responsividad
+              isDesktop: isDesktop,
             ),
           )
           .toList(),
@@ -359,13 +368,10 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
       showProgressBar: false,
       callbacks: ToastificationCallbacks(
         onTap: (toastItem) {
-          // Undo deletion
           setState(() {
             _alerts.add(alert);
           });
           toastification.dismiss(toastItem);
-
-          // Show confirmation toast
           toastification.show(
             context: context,
             type: ToastificationType.success,
@@ -434,11 +440,8 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                       title: const Text('Above'),
                       value: AlertType.above,
                       groupValue: selectedType,
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedType = value!;
-                        });
-                      },
+                      onChanged: (value) =>
+                          setDialogState(() => selectedType = value!),
                     ),
                   ),
                   Expanded(
@@ -446,11 +449,8 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                       title: const Text('Below'),
                       value: AlertType.below,
                       groupValue: selectedType,
-                      onChanged: (value) {
-                        setDialogState(() {
-                          selectedType = value!;
-                        });
-                      },
+                      onChanged: (value) =>
+                          setDialogState(() => selectedType = value!),
                     ),
                   ),
                 ],
@@ -466,13 +466,10 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
               onPressed: () {
                 final pair = pairController.text.trim();
                 final priceText = priceController.text.trim();
-
                 if (pair.isNotEmpty && priceText.isNotEmpty) {
                   try {
                     final price = double.parse(priceText);
-
                     if (editingAlert == null) {
-                      // Add new alert
                       final newAlert = AlertData(
                         id: DateTime.now().millisecondsSinceEpoch.toString(),
                         pair: pair,
@@ -482,12 +479,8 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                         createdAt: DateTime.now(),
                         isTriggered: false,
                       );
-
-                      setState(() {
-                        _alerts.add(newAlert);
-                      });
+                      setState(() => _alerts.add(newAlert));
                     } else {
-                      // Edit existing alert
                       setState(() {
                         editingAlert.pair = pair;
                         editingAlert.targetPrice = price;
@@ -495,10 +488,7 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                         editingAlert.isTriggered = false;
                       });
                     }
-
                     Navigator.pop(context);
-
-                    // Show success toast
                     toastification.show(
                       context: context,
                       type: editingAlert == null
@@ -522,7 +512,6 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
                       showProgressBar: false,
                     );
                   } catch (e) {
-                    // Show error toast for invalid price
                     toastification.show(
                       context: context,
                       type: ToastificationType.error,
@@ -579,6 +568,7 @@ class AlertRow extends StatefulWidget {
     required this.onToggle,
     required this.onDelete,
     required this.onEdit,
+    required this.isDesktop,
   });
 
   final AlertData alert;
@@ -586,6 +576,7 @@ class AlertRow extends StatefulWidget {
   final VoidCallback onToggle;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
+  final bool isDesktop;
 
   @override
   State<AlertRow> createState() => _AlertRowState();
@@ -667,105 +658,148 @@ class _AlertRowState extends State<AlertRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              widget.alert.pair,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.getTextPrimary(widget.isDark),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: AppSpacing.xs,
-              ),
-              decoration: BoxDecoration(
-                color: _getAlertTypeColor().withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-              ),
-              child: Text(
-                widget.alert.type == AlertType.above ? 'Above' : 'Below',
-                style: AppTextStyles.caption.copyWith(
-                  color: _getAlertTypeColor(),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-            if (widget.alert.isTriggered) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.getWarning(widget.isDark),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                ),
-                child: Text(
-                  'TRIGGERED',
-                  style: AppTextStyles.caption.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
-            ] else if (isNearTarget) ...[
-              const SizedBox(width: AppSpacing.sm),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.getWarning(widget.isDark).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-                ),
-                child: Text(
-                  'NEAR',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.getWarning(widget.isDark),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 9,
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
+        _buildPairAndStatusInfo(isNearTarget),
         const SizedBox(height: AppSpacing.xs),
-        Row(
-          children: [
-            Text(
-              'Target: \$${_formatPrice(widget.alert.targetPrice)}',
+        // Lógica condicional para mostrar la información de precios
+        widget.isDesktop
+            ? _buildDesktopPriceInfo(priceDistance, isNearTarget)
+            : _buildMobilePriceInfo(priceDistance, isNearTarget),
+      ],
+    );
+  }
+
+  Widget _buildPairAndStatusInfo(bool isNearTarget) {
+    return Row(
+      children: [
+        Text(
+          widget.alert.pair,
+          style: AppTextStyles.bodyMedium.copyWith(
+            color: AppColors.getTextPrimary(widget.isDark),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            color: _getAlertTypeColor().withOpacity(0.1),
+            borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+          ),
+          child: Text(
+            widget.alert.type == AlertType.above ? 'Above' : 'Below',
+            style: AppTextStyles.caption.copyWith(
+              color: _getAlertTypeColor(),
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+          ),
+        ),
+        if (widget.alert.isTriggered) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.getWarning(widget.isDark),
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+            ),
+            child: Text(
+              'TRIGGERED',
               style: AppTextStyles.caption.copyWith(
-                color: AppColors.getTextSecondary(widget.isDark),
-                fontWeight: FontWeight.w500,
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
-            Text(
-              'Current: \$${_formatPrice(widget.alert.currentPrice)}',
+          ),
+        ] else if (isNearTarget) ...[
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.getWarning(widget.isDark).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+            ),
+            child: Text(
+              'NEAR',
               style: AppTextStyles.caption.copyWith(
-                color: AppColors.getTextSecondary(widget.isDark),
+                color: AppColors.getWarning(widget.isDark),
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
               ),
             ),
-            const SizedBox(width: AppSpacing.md),
-            Text(
-              priceDistance,
-              style: AppTextStyles.caption.copyWith(
-                color: isNearTarget
-                    ? AppColors.getWarning(widget.isDark)
-                    : AppColors.getTextMuted(widget.isDark),
-                fontSize: 10,
-              ),
-            ),
-          ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  // Widget para la vista de escritorio
+  Widget _buildDesktopPriceInfo(String priceDistance, bool isNearTarget) {
+    return Row(
+      children: [
+        Text(
+          'Target: \$${_formatPrice(widget.alert.targetPrice)}',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.getTextSecondary(widget.isDark),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Text(
+          'Current: \$${_formatPrice(widget.alert.currentPrice)}',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.getTextSecondary(widget.isDark),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+        Text(
+          priceDistance,
+          style: AppTextStyles.caption.copyWith(
+            color: isNearTarget
+                ? AppColors.getWarning(widget.isDark)
+                : AppColors.getTextMuted(widget.isDark),
+            fontSize: 10,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Widget para la vista móvil
+  Widget _buildMobilePriceInfo(String priceDistance, bool isNearTarget) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Target: \$${_formatPrice(widget.alert.targetPrice)}',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.getTextSecondary(widget.isDark),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Text(
+          'Current: \$${_formatPrice(widget.alert.currentPrice)}',
+          style: AppTextStyles.caption.copyWith(
+            color: AppColors.getTextSecondary(widget.isDark),
+          ),
+        ),
+        Text(
+          priceDistance,
+          style: AppTextStyles.caption.copyWith(
+            color: isNearTarget
+                ? AppColors.getWarning(widget.isDark)
+                : AppColors.getTextMuted(widget.isDark),
+            fontSize: 10,
+          ),
         ),
       ],
     );
@@ -775,7 +809,6 @@ class _AlertRowState extends State<AlertRow> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Toggle switch
         Switch(
           value: widget.alert.isActive,
           onChanged: (_) => widget.onToggle(),
@@ -783,10 +816,8 @@ class _AlertRowState extends State<AlertRow> {
           inactiveThumbColor: AppColors.getTextMuted(widget.isDark),
           inactiveTrackColor: AppColors.getBorderSecondary(widget.isDark),
         ),
-
-        if (_isHovered) ...[
+        if (widget.isDesktop && _isHovered) ...[
           const SizedBox(width: AppSpacing.sm),
-          // Edit button
           IconButton(
             onPressed: widget.onEdit,
             icon: Icon(
@@ -797,8 +828,6 @@ class _AlertRowState extends State<AlertRow> {
             tooltip: 'Edit Alert',
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
-
-          // Delete button
           IconButton(
             onPressed: widget.onDelete,
             icon: Icon(
@@ -822,7 +851,6 @@ class _AlertRowState extends State<AlertRow> {
 
   bool _isNearTarget() {
     if (!widget.alert.isActive || widget.alert.currentPrice == 0) return false;
-
     final percentDifference =
         ((widget.alert.currentPrice - widget.alert.targetPrice).abs() /
             widget.alert.targetPrice) *
@@ -832,10 +860,8 @@ class _AlertRowState extends State<AlertRow> {
 
   String _getPriceDistance() {
     if (widget.alert.currentPrice == 0) return '';
-
     final difference = widget.alert.targetPrice - widget.alert.currentPrice;
     final percentDifference = (difference / widget.alert.currentPrice) * 100;
-
     if (difference > 0) {
       return '+${percentDifference.toStringAsFixed(1)}% to go';
     } else {

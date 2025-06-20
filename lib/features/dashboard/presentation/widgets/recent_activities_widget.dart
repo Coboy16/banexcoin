@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:async';
 import 'dart:math';
+import 'package:responsive_framework/responsive_framework.dart';
 
 import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
@@ -311,6 +312,8 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -330,7 +333,7 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
                   const Divider(height: 1),
                   Padding(
                     padding: const EdgeInsets.only(left: 15, right: 15),
-                    child: _buildContent(isDark, marketState),
+                    child: _buildContent(isDark, marketState, isDesktop),
                   ),
                 ],
               ),
@@ -413,11 +416,15 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
     );
   }
 
-  Widget _buildContent(bool isDark, MarketDataState marketState) {
+  Widget _buildContent(
+    bool isDark,
+    MarketDataState marketState,
+    bool isDesktop,
+  ) {
     if (marketState is MarketDataLoading) {
       return _buildLoadingState(isDark);
     } else if (marketState is MarketDataLoaded) {
-      return _buildActivitiesList(isDark);
+      return _buildActivitiesList(isDark, isDesktop);
     } else if (marketState is MarketDataError) {
       return _buildErrorState(isDark);
     } else {
@@ -483,54 +490,59 @@ class _RecentActivitiesWidgetState extends State<RecentActivitiesWidget> {
     );
   }
 
-  Widget _buildActivitiesList(bool isDark) {
-    if (_activities.isEmpty) {
-      return SizedBox(
-        height: 430,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                LucideIcons.activity,
-                color: AppColors.getTextMuted(isDark),
-                size: 48,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Waiting for market activity...',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.getTextMuted(isDark),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Activities will appear as prices change',
-                style: AppTextStyles.caption.copyWith(
-                  color: AppColors.getTextMuted(isDark),
-                ),
-              ),
-            ],
+  Widget _buildActivitiesList(bool isDark, bool isDesktop) {
+    final emptyStateWidget = Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            LucideIcons.activity,
+            color: AppColors.getTextMuted(isDark),
+            size: 48,
           ),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 430,
-      child: ListView.builder(
-        itemCount: _activities.length,
-        itemBuilder: (context, index) {
-          final activity = _activities[index];
-          return ActivityRow(
-            activity: activity,
-            isDark: isDark,
-            timeAgo: _formatTimeAgo(activity.time),
-          );
-        },
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Waiting for market activity...',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Activities will appear as prices change',
+            style: AppTextStyles.caption.copyWith(
+              color: AppColors.getTextMuted(isDark),
+            ),
+          ),
+        ],
       ),
     );
+
+    final listWidget = ListView.builder(
+      shrinkWrap: !isDesktop,
+      physics: isDesktop
+          ? const AlwaysScrollableScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      itemCount: _activities.length,
+      itemBuilder: (context, index) {
+        final activity = _activities[index];
+        return ActivityRow(
+          activity: activity,
+          isDark: isDark,
+          timeAgo: _formatTimeAgo(activity.time),
+        );
+      },
+    );
+
+    if (isDesktop) {
+      return SizedBox(
+        height: 430,
+        child: _activities.isEmpty ? emptyStateWidget : listWidget,
+      );
+    } else {
+      return _activities.isEmpty ? emptyStateWidget : listWidget;
+    }
   }
 
   Widget _buildErrorState(bool isDark) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:responsive_framework/responsive_framework.dart'; // Importación necesaria
 
 import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
@@ -12,6 +13,8 @@ class MarketOverviewWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = ResponsiveBreakpoints.of(context).isDesktop;
+
     return BlocBuilder<ThemeBloc, ThemeState>(
       builder: (context, themeState) {
         final isDark = themeState.isDarkMode;
@@ -28,7 +31,7 @@ class MarketOverviewWidget extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildHeader(isDark, marketState),
+                  _buildHeader(isDark, marketState, isDesktop),
                   const SizedBox(height: AppSpacing.lg),
                   _buildContent(isDark, marketState),
                 ],
@@ -40,7 +43,11 @@ class MarketOverviewWidget extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(bool isDark, MarketDataState marketState) {
+  Widget _buildHeader(
+    bool isDark,
+    MarketDataState marketState,
+    bool isDesktop,
+  ) {
     return Row(
       children: [
         Text(
@@ -51,12 +58,16 @@ class MarketOverviewWidget extends StatelessWidget {
         ),
         const Spacer(),
         if (marketState is MarketDataLoaded)
-          _buildLastUpdated(isDark, marketState),
+          _buildLastUpdated(isDark, marketState, isDesktop),
       ],
     );
   }
 
-  Widget _buildLastUpdated(bool isDark, MarketDataLoaded state) {
+  Widget _buildLastUpdated(
+    bool isDark,
+    MarketDataLoaded state,
+    bool isDesktop,
+  ) {
     final lastUpdated = state.lastUpdated;
     final timeDiff = DateTime.now().difference(lastUpdated);
 
@@ -69,33 +80,42 @@ class MarketOverviewWidget extends StatelessWidget {
       timeText = '${timeDiff.inHours}h ago';
     }
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.getSurfaceColor(isDark),
-        borderRadius: BorderRadius.circular(AppBorderRadius.sm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            LucideIcons.clock,
-            size: 12,
-            color: AppColors.getTextMuted(isDark),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            'Updated $timeText',
-            style: AppTextStyles.caption.copyWith(
+    if (isDesktop) {
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.getSurfaceColor(isDark),
+          borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              LucideIcons.clock,
+              size: 12,
               color: AppColors.getTextMuted(isDark),
             ),
-          ),
-        ],
-      ),
-    );
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              'Updated $timeText',
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.getTextMuted(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      return Text(
+        timeText, // Mostrar solo el texto del tiempo
+        style: AppTextStyles.caption.copyWith(
+          color: AppColors.getTextMuted(isDark),
+        ),
+      );
+    }
   }
 
   Widget _buildContent(bool isDark, MarketDataState marketState) {
