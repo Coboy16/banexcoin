@@ -534,16 +534,6 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
       ),
     );
   }
-
-  String _formatPrice(double price) {
-    if (price >= 1000) {
-      return price.toStringAsFixed(2);
-    } else if (price >= 1) {
-      return price.toStringAsFixed(4);
-    } else {
-      return price.toStringAsFixed(6);
-    }
-  }
 }
 
 enum AlertType { above, below }
