@@ -127,7 +127,6 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
               unselectedLabelStyle: AppTextStyles.bodyMedium,
               tabs: const [
                 Tab(text: 'Trade'),
-                Tab(text: 'Order Book'),
                 Tab(text: 'Market'),
               ],
             ),
@@ -138,7 +137,6 @@ class _TradingPairDetailPageState extends State<TradingPairDetailPage>
               controller: _tabController,
               children: [
                 QuickTradeWidget(symbol: widget.symbol),
-                OrderBookTwoWidget(symbol: widget.symbol),
                 _buildMarketTab(isDark),
               ],
             ),
