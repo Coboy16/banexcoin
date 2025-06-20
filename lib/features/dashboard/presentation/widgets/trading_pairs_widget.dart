@@ -300,7 +300,6 @@ class _TradingPairRowState extends State<TradingPairRow>
   bool _isHovered = false;
   late AnimationController _flashController;
   late Animation<Color?> _flashAnimation;
-  Color? _lastPriceColor;
 
   @override
   void initState() {
