@@ -5,7 +5,6 @@ import 'package:auto_size_text/auto_size_text.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:math';
 
-import '/features/dashboard/domain/entities/entities.dart';
 import '/core/bloc/blocs.dart';
 import '/core/core.dart';
 
@@ -423,7 +422,6 @@ class _PortfolioMetricCardState extends State<PortfolioMetricCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
-  String? _previousValue;
 
   @override
   void initState() {
@@ -435,7 +433,6 @@ class _PortfolioMetricCardState extends State<PortfolioMetricCard>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    _previousValue = widget.metric.value;
   }
 
   @override
@@ -447,7 +444,6 @@ class _PortfolioMetricCardState extends State<PortfolioMetricCard>
       _pulseController.forward().then((_) {
         _pulseController.reverse();
       });
-      _previousValue = widget.metric.value;
     }
   }
 

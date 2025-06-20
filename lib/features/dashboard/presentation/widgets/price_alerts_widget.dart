@@ -134,9 +134,10 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
         ),
       ),
       description: Text(
-        '${alert.pair} is now ${alert.type == AlertType.above ? 'above' : 'below'} \${_formatPrice(alert.targetPrice)}',
+        '${alert.pair} is now ${alert.type == AlertType.above ? 'above' : 'below'} ${_formatPrice(alert.targetPrice)}',
         style: const TextStyle(color: Colors.white),
       ),
+
       alignment: Alignment.topRight,
       autoCloseDuration: const Duration(seconds: 6),
       animationDuration: const Duration(milliseconds: 400),
@@ -155,6 +156,16 @@ class _PriceAlertsWidgetState extends State<PriceAlertsWidget> {
         },
       ),
     );
+  }
+
+  String _formatPrice(double price) {
+    if (price >= 1000) {
+      return price.toStringAsFixed(2);
+    } else if (price >= 1) {
+      return price.toStringAsFixed(4);
+    } else {
+      return price.toStringAsFixed(6);
+    }
   }
 
   Widget _buildHeader(bool isDark, MarketDataState marketState) {
