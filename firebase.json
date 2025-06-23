@@ -1,1 +1,47 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"banexcoin-6a811","appId":"1:351910628918:android:7da0d943057bb44d881297","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"banexcoin-6a811","configurations":{"android":"1:351910628918:android:7da0d943057bb44d881297","ios":"1:351910628918:ios:0251ed2392bbbdea881297","web":"1:351910628918:web:49e11ca8fd180efd881297"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "banexcoin-6a811",
+          "appId": "1:351910628918:android:7da0d943057bb44d881297",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "banexcoin-6a811",
+          "configurations": {
+            "android": "1:351910628918:android:7da0d943057bb44d881297",
+            "ios": "1:351910628918:ios:0251ed2392bbbdea881297",
+            "web": "1:351910628918:web:49e11ca8fd180efd881297"
+          }
+        }
+      }
+    }
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": ["npm --prefix \"$RESOURCE_DIR\" run lint"]
+    }
+  ],
+  "hosting": {
+    "public": "build/web",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
