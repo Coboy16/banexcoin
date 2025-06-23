@@ -64,17 +64,19 @@ Un desafío clave en las aplicaciones web que consumen APIs de terceros es la **
 
 Este enfoque profesional garantiza que la aplicación funcione correctamente en cualquier navegador sin comprometer la seguridad.
 
+> **Nota:** El siguiente diagrama está escrito en sintaxis Mermaid. Si tu visor de Markdown no soporta Mermaid, puedes visualizarlo copiando el código en [Mermaid Live Editor](https://mermaid.live/).
+
 ```mermaid
 graph TD
-    subgraph Navegador del Usuario
+    subgraph "Navegador del Usuario"
         A[App Flutter Web]
     end
 
-    subgraph Google Cloud
+    subgraph "Google Cloud"
         B[Firebase Cloud Function (Proxy)]
     end
 
-    subgraph Internet
+    subgraph "Internet"
         C[API de Binance]
     end
 
