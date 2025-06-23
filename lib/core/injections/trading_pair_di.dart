@@ -30,7 +30,8 @@ Future<void> _initExternalDependencies() async {
   if (!tpSl.isRegistered<Dio>(instanceName: 'tradingPairDio')) {
     final dio = Dio(
       BaseOptions(
-        baseUrl: 'https://data-api.binance.vision/api/v3',
+        baseUrl:
+            'https://us-central1-banexcoin-6a811.cloudfunctions.net/binanceProxy',
         connectTimeout: const Duration(seconds: 15),
         receiveTimeout: const Duration(seconds: 20),
         sendTimeout: const Duration(seconds: 15),

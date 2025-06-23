@@ -57,7 +57,8 @@ abstract class TradingPairRemoteDataSource {
 class TradingPairRemoteDataSourceImpl implements TradingPairRemoteDataSource {
   final Dio _dio;
   static const String _baseWsUrl = 'wss://stream.binance.com:9443/ws';
-  static const String _baseApiUrl = 'https://data-api.binance.vision/api/v3';
+  static const String _baseApiUrl =
+      'https://us-central1-banexcoin-6a811.cloudfunctions.net/binanceProxy';
 
   // Controladores de stream para cada tipo de conexión
   final Map<String, StreamController<TradingPairModel>> _tickerControllers = {};
