@@ -1,3 +1,5 @@
+// lib/features/dashboard/data/datasources/binance_rest_datasource.dart
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
@@ -40,16 +42,15 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
     return dio;
   }
 
-  // URL base - usar directamente la API de Binance
-  String get _baseUrl => 'https://data-api.binance.vision/api/v3';
+  // Se define el prefijo de la API que se añadirá a la baseUrl configurada en Dio.
+  final String _apiPrefix = '/api/v3';
 
   @override
   Future<TickerModel> getTicker24hr(String symbol) async {
     try {
       debugPrint('🌐 Requesting ticker for: $symbol');
-
       final response = await _dio.get(
-        '$_baseUrl/ticker/24hr',
+        '$_apiPrefix/ticker/24hr',
         queryParameters: {'symbol': symbol.toUpperCase()},
       );
 
@@ -72,8 +73,7 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   Future<List<TickerModel>> getAllTickers24hr() async {
     try {
       debugPrint('🌐 Requesting all tickers');
-
-      final response = await _dio.get('$_baseUrl/ticker/24hr');
+      final response = await _dio.get('$_apiPrefix/ticker/24hr');
 
       if (response.statusCode == 200) {
         final List<dynamic> data = response.data;
@@ -95,8 +95,7 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   Future<ExchangeInfoModel> getExchangeInfo() async {
     try {
       debugPrint('🌐 Requesting exchange info');
-
-      final response = await _dio.get('$_baseUrl/exchangeInfo');
+      final response = await _dio.get('$_apiPrefix/exchangeInfo');
 
       if (response.statusCode == 200) {
         return ExchangeInfoModel.fromJson(response.data);
@@ -117,9 +116,8 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   Future<double> getCurrentPrice(String symbol) async {
     try {
       debugPrint('🌐 Requesting current price for: $symbol');
-
       final response = await _dio.get(
-        '$_baseUrl/ticker/price',
+        '$_apiPrefix/ticker/price',
         queryParameters: {'symbol': symbol.toUpperCase()},
       );
 
@@ -143,9 +141,8 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   Future<DepthModel> getOrderBook(String symbol, {int limit = 20}) async {
     try {
       debugPrint('🌐 Requesting order book for: $symbol');
-
       final response = await _dio.get(
-        '$_baseUrl/depth',
+        '$_apiPrefix/depth',
         queryParameters: {
           'symbol': symbol.toUpperCase(),
           'limit': limit.toString(),
@@ -171,8 +168,7 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
   Future<bool> checkConnectivity() async {
     try {
       debugPrint('🌐 Checking connectivity');
-
-      final response = await _dio.get('$_baseUrl/ping');
+      final response = await _dio.get('$_apiPrefix/ping');
       return response.statusCode == 200;
     } catch (e) {
       return false;
@@ -216,7 +212,7 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
 
   Future<int> getServerTime() async {
     try {
-      final response = await _dio.get('$_baseUrl/time');
+      final response = await _dio.get('$_apiPrefix/time');
       return response.data['serverTime'] as int;
     } catch (e) {
       return DateTime.now().millisecondsSinceEpoch;
@@ -225,7 +221,7 @@ class BinanceRestDataSourceImpl implements BinanceRestDataSource {
 
   Future<Map<String, dynamic>> getExchangeStatistics() async {
     try {
-      final response = await _dio.get('$_baseUrl/ticker/24hr');
+      final response = await _dio.get('$_apiPrefix/ticker/24hr');
       final tickers = response.data as List;
 
       double totalVolume = 0;

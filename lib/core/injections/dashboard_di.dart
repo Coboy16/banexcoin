@@ -31,7 +31,8 @@ Future<void> _initExternalDependencies() async {
     // Configurar Dio para HTTP requests
     final dio = Dio(
       BaseOptions(
-        baseUrl: 'https://api.binance.com/api/v3',
+        baseUrl:
+            'https://us-central1-banexcoin-6a811.cloudfunctions.net/binanceProxy',
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 15),
         sendTimeout: const Duration(seconds: 10),

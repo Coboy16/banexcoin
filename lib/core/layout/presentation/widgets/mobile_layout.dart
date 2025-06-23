@@ -100,7 +100,7 @@ class MobileLayout extends StatelessWidget {
                 AppRouter.dashboard,
                 AppRouter.tradingPairs,
                 AppRouter.orderBook,
-                AppRouter.calculator,
+                // AppRouter.calculator,
               ];
               if (index < routes.length) {
                 context.go(routes[index]);
@@ -119,10 +119,10 @@ class MobileLayout extends StatelessWidget {
                 icon: Icon(LucideIcons.bookOpen),
                 label: 'Orders',
               ),
-              BottomNavigationBarItem(
-                icon: Icon(LucideIcons.calculator),
-                label: 'Calculator',
-              ),
+              // BottomNavigationBarItem(
+              //   icon: Icon(LucideIcons.calculator),
+              //   label: 'Calculator',
+              // ),
             ],
           ),
           drawer: _buildMobileDrawer(context, isDark),

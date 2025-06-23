@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "351910628918",
+    "project_id": "banexcoin-6a811",
+    "storage_bucket": "banexcoin-6a811.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:351910628918:android:7da0d943057bb44d881297",
+        "android_client_info": {
+          "package_name": "com.example.banexcoin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHy9vcJnZfP2o2MvU7WMsDAPX1T_0eQMs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
