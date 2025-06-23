@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
 import '/core/injections/dashboard_di.dart' as di;
 import '/core/injections/trading_pair_di.dart' as tp_di;
 import '/core/router/app_router.dart';
@@ -12,6 +15,7 @@ import '/core/core.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await di.initializeDependenciesWithEnvironment(di.Environment.development);
   di.validateDependencies();
 
@@ -35,13 +39,10 @@ class BanexCoinApp extends StatelessWidget {
         return MaterialApp.router(
           title: 'BanexCoin',
           debugShowCheckedModeBanner: false,
-
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           themeMode: themeState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-
           routerConfig: AppRouter.createRouter(),
-
           builder: (context, child) {
             return ResponsiveBreakpoints.builder(
               child: child!,
