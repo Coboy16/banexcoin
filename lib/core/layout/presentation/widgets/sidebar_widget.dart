@@ -71,15 +71,15 @@ class SidebarWidget extends StatelessWidget {
                       isDark: isDark,
                       onTap: () => context.go(AppRouter.orderBook),
                     ),
-                    _SidebarItem(
-                      icon: LucideIcons.calculator,
-                      title: 'Calculator',
-                      isActive: currentRoute == AppRouter.calculator,
-                      isExpanded: isExpanded,
-                      isDark: isDark,
-                      onTap: () => context.go(AppRouter.calculator),
-                    ),
 
+                    // _SidebarItem(
+                    //   icon: LucideIcons.calculator,
+                    //   title: 'Calculator',
+                    //   isActive: currentRoute == AppRouter.calculator,
+                    //   isExpanded: isExpanded,
+                    //   isDark: isDark,
+                    //   onTap: () => context.go(AppRouter.calculator),
+                    // ),
                     const SizedBox(height: AppSpacing.lg),
 
                     if (isExpanded)

@@ -56,14 +56,14 @@ class AppRouter {
                 return const NoTransitionPage(child: OrderBookPage());
               },
             ),
-            GoRoute(
-              path: calculator,
-              name: calculatorName,
-              pageBuilder: (context, state) {
-                _updateNavigationState(context, calculator, 3);
-                return const NoTransitionPage(child: TradingCalculatorPage());
-              },
-            ),
+            // GoRoute(
+            //   path: calculator,
+            //   name: calculatorName,
+            //   pageBuilder: (context, state) {
+            //     _updateNavigationState(context, calculator, 3);
+            //     return const NoTransitionPage(child: TradingCalculatorPage());
+            //   },
+            // ),
             // GoRoute(
             //   path: portfolio,
             //   name: portfolioName,
